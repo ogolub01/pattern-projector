@@ -1,0 +1,8 @@
+{
+  // Cloudflare settings: the app is a plain static site in ./public, no build step.
+  "name": "pattern-projector",
+  "compatibility_date": "2026-10-01",
+  "assets": {
+    "directory": "./public"
+  }
+}
