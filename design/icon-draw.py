@@ -5,9 +5,11 @@ def bez(p0,p1,p2,p3,n=60):
     return [(((1-t)**3)*p0[0]+3*((1-t)**2)*t*p1[0]+3*(1-t)*t*t*p2[0]+t**3*p3[0],
              ((1-t)**3)*p0[1]+3*((1-t)**2)*t*p1[1]+3*(1-t)*t*t*p2[1]+t**3*p3[1]) for t in [i/n for i in range(n+1)]]
 def sleeve():
-    L=(0.27,0.44); T=(0.505,0.255); R=(0.73,0.44)
-    cap=bez(L,(0.34,0.43),(0.38,0.255),T)+bez(T,(0.63,0.255),(0.66,0.43),R)[1:]
-    return cap+[(0.655,0.79),(0.345,0.79),L], cap
+    # symmetric about x = 0.5, and shifted so its height is centred on y = 0.5
+    dy=-0.0225
+    L=(0.27,0.44+dy); T=(0.50,0.255+dy); R=(0.73,0.44+dy)
+    cap=bez(L,(0.34,0.43+dy),(0.375,0.255+dy),T)+bez(T,(0.625,0.255+dy),(0.66,0.43+dy),R)[1:]
+    return cap+[(0.655,0.79+dy),(0.345,0.79+dy),L], cap
 def bodice():
     pts=[(0.30,0.37)]
     pts+=bez((0.30,0.37),(0.38,0.37),(0.43,0.31),(0.445,0.24))[1:]          # neckline
@@ -62,10 +64,10 @@ def draw(piece, frame='full', notches=False, grain=False, cross=True, N=1024):
         d.line([P((x,y0)),P((x,y1))],fill=BRASS,width=int(pw*0.8))
         for yy,s in [(y0,1),(y1,-1)]: d.line([P((x-0.022,yy+s*0.03)),P((x,yy)),P((x+0.022,yy+s*0.03))],fill=BRASS,width=int(pw*0.8),joint='curve')
     if cross:
-        cx,cy=(0.50,0.55) if piece=='sleeve' else (0.60,0.62); r=0.028
+        cx,cy=(0.50,0.50) if piece=='sleeve' else (0.60,0.62); r=0.028
         if not grain:
             # the app's rotation-point mark: a small circle with four ticks (same proportions as #pivotMark, 26 px box)
-            u=0.072/12; sw=int(pw*0.8)
+            u=0.052/12; sw=int(pw*0.8)
             d.ellipse([P((cx-6*u,cy-6*u)),P((cx+6*u,cy+6*u))],outline=BRASS,width=sw)
             for (ax,ay,bx,by) in [(0,-12,0,-5),(0,5,0,12),(-12,0,-5,0),(5,0,12,0)]:
                 d.line([P((cx+ax*u,cy+ay*u)),P((cx+bx*u,cy+by*u))],fill=BRASS,width=sw)
