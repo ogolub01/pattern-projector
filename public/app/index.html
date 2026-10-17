@@ -161,6 +161,15 @@ input.serif { font-family: var(--serif); font-style: italic; font-size: 18px; }
 .asmRange output { min-width: 62px; text-align: right; font-size: 12px; font-variant-numeric: tabular-nums; }
 #sizeMark { border-color: var(--brass); color: var(--brass); animation: sizeNudge 1.6s ease 2; }
 @keyframes sizeNudge { 0%, 100% { box-shadow: 0 0 0 0 rgba(201,162,75,0); } 50% { box-shadow: 0 0 0 4px rgba(201,162,75,.28); } }
+#fbAsk { position: fixed; inset: 0; z-index: 50; background: rgba(0,0,0,.6); display: flex; align-items: center; justify-content: center; padding: 16px; }
+#fbAsk[hidden] { display: none; }
+#fbAsk .card { width: min(420px, 100%); background: var(--panel); border: 1px solid var(--line); box-shadow: 0 20px 60px rgba(0,0,0,.6); padding: 22px 22px 20px; display: flex; flex-direction: column; gap: 12px; }
+#fbAsk h2 { margin: 0; font-family: var(--serif); font-weight: 400; font-size: 30px; line-height: 1.05; }
+#fbAsk textarea { width: 100%; box-sizing: border-box; resize: vertical; background: #0E0E0D; color: var(--ink); border: 1px solid var(--line); padding: 10px 12px; font: 16px/1.4 var(--mono); }
+#fbAsk textarea:focus { outline: none; border-color: var(--brass); }
+#fbMsg:empty { display: none; }
+.fbLink { align-self: center; margin: 6px auto 14px; background: none; border: 0; padding: 6px 8px; color: var(--mute); font: 11px var(--mono); letter-spacing: .12em; text-transform: uppercase; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.fbLink:hover { color: var(--brass); }
 #newAsk { position: fixed; inset: 0; z-index: 40; background: rgba(0,0,0,.6); display: flex; align-items: center; justify-content: center; padding: 16px; }
 #newAsk .card { width: min(380px, 100%); background: var(--panel); border: 1px solid var(--line); box-shadow: 0 20px 60px rgba(0,0,0,.6); padding: 22px 22px 20px; display: flex; flex-direction: column; gap: 12px; }
 #newAsk h2 { margin: 0; font-family: var(--serif); font-weight: 400; font-size: 30px; line-height: 1.05; }
@@ -775,6 +784,8 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
 
   </section>
 
+  <button class="fbLink" id="fbOpen" type="button">Send feedback</button>
+
   <!-- settings that live in the toolbox; kept here, hidden, so other parts can read them -->
   <div hidden>
     <input type="checkbox" id="rulerChk">
@@ -942,6 +953,17 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
   <button class="btn slim" id="eraseUndo">Undo</button>
   <button class="btn slim" id="eraseDone">Done</button>
 </div>
+<div id="fbAsk" hidden role="dialog" aria-modal="true" aria-labelledby="fbAskT">
+  <div class="card">
+    <span class="eyebrow">Feedback</span>
+    <h2 id="fbAskT">Tell me <i>anything</i></h2>
+    <p class="note">A bug, something confusing, something you love. It goes straight to Olga.</p>
+    <textarea id="fbText" rows="5" maxlength="4000" placeholder="What happened, or what would make it better?"></textarea>
+    <p class="note" id="fbMsg" role="status" aria-live="polite"></p>
+    <button class="btn primary" id="fbSend">Send</button>
+    <button class="btn" id="fbCancel">Cancel</button>
+  </div>
+</div>
 <div id="newAsk" hidden role="dialog" aria-modal="true" aria-labelledby="newAskT">
   <div class="card">
     <span class="eyebrow">New project</span>
@@ -1071,6 +1093,7 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
     <div class="row2"><label class="f" for="pbW">Width<input type="number" id="pbW" inputmode="decimal" min="1"></label><label class="f" for="pbH">Height<input type="number" id="pbH" inputmode="decimal" min="1"></label></div>
     <div class="seg"><button class="btn" data-pu="mm">MM</button><button class="btn" data-pu="cm">CM</button><button class="btn" data-pu="in">IN</button></div>
     <button class="btn primary" id="pbSheetDone">Done</button>
+    <button class="fbLink" id="pbFeedback" type="button">Send feedback</button>
   </div>
 </div>
 <div id="toast" hidden></div>
@@ -3514,6 +3537,25 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
     if (ok) toast(SAVE.meta && SAVE.meta.slot === 'main' ? 'That PDF is already the main fabric' : 'Lining added · switch between them under Project');
     renderPatternList();
   }
+  /* ---------- feedback: goes to the site's own storage, read on /app/list/ ---------- */
+  function openFeedback() { $('#pbSheet').hidden = true; $('#fbMsg').textContent = ''; $('#fbSend').disabled = false; $('#fbSend').textContent = 'Send'; $('#fbAsk').hidden = false; setTimeout(() => $('#fbText').focus(), 30); }
+  $('#fbOpen').addEventListener('click', openFeedback);
+  $('#pbFeedback').addEventListener('click', openFeedback);
+  $('#fbCancel').addEventListener('click', () => { $('#fbAsk').hidden = true; });
+  $('#fbAsk').addEventListener('keydown', e => { if (e.key === 'Escape') { e.stopPropagation(); $('#fbAsk').hidden = true; } });
+  $('#fbSend').addEventListener('click', async () => {
+    const text = $('#fbText').value.trim(), msg = $('#fbMsg'), b = $('#fbSend');
+    if (!text) { msg.textContent = 'Write something first.'; return; }
+    b.disabled = true; b.textContent = 'Sending…';
+    try {
+      const r = await fetch('/app/api/feedback', { method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ text, file: S.fileName || '', screen: innerWidth + '×' + innerHeight, phone: PHONE, ua: navigator.userAgent.slice(0, 200) }) });
+      if (!r.ok) throw 0;
+      $('#fbText').value = ''; b.textContent = 'Sent'; msg.textContent = 'Thank you! Got it.';
+      setTimeout(() => { $('#fbAsk').hidden = true; }, 1400);
+    } catch { b.disabled = false; b.textContent = 'Send'; msg.textContent = 'Couldn’t send just now. Check the connection and try again.'; }
+  });
+
   function askNewProject(file) {
     PROJ.pending = file || null;
     const parts = [PROJ.main, PROJ.lining].filter(Boolean).map(r => r.name.replace(/\.pdf$/i, ''));
@@ -6184,16 +6226,16 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
     q.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); setQuiet(false); });
     document.addEventListener('keydown', e => {
       if (!q.hidden && !q.classList.contains('out')) { e.preventDefault(); e.stopImmediatePropagation(); setQuiet(false); return; }
-      if ((e.key === 'q' || e.key === 'Q') && !e.metaKey && !e.ctrlKey && !e.altKey && !e.target.matches('input[type="text"], input[type="number"]')) { e.preventDefault(); e.stopImmediatePropagation(); setQuiet(true); }
+      if ((e.key === 'q' || e.key === 'Q') && !e.metaKey && !e.ctrlKey && !e.altKey && !e.target.matches('input[type="text"], input[type="number"], textarea')) { e.preventDefault(); e.stopImmediatePropagation(); setQuiet(true); }
     }, true);
   })();
   document.addEventListener('keydown', e => {
-    if ((e.metaKey || e.ctrlKey) && (e.key === 'z' || e.key === 'Z' || e.key === 'y') && S.step === 'project' && !e.target.matches('input[type="text"], input[type="number"]')) {
+    if ((e.metaKey || e.ctrlKey) && (e.key === 'z' || e.key === 'Z' || e.key === 'y') && S.step === 'project' && !e.target.matches('input[type="text"], input[type="number"], textarea')) {
       e.preventDefault();
       if (e.key === 'y' || e.shiftKey) redo(); else undo();
       return;
     }
-    if (e.target.matches('input[type="text"], input[type="number"]')) return;
+    if (e.target.matches('input[type="text"], input[type="number"], textarea')) return;
     const k = e.key;
     if (k === 'Escape') {
       if (!ov.hidden) { ov.hidden = true; return; }
@@ -6218,7 +6260,7 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
     if (S.step === 'project' && TK[k.toLowerCase()] && !e.metaKey && !e.ctrlKey) { toggleTool(TK[k.toLowerCase()]); return; }
     if (S.step === 'project' && (k === '[' || k === ']' || k === '{' || k === '}')) { e.preventDefault(); turn((k === '[' || k === '{' ? -1 : 1) * (e.shiftKey ? 0.1 : 1)); return; }
     const dirs = { ArrowUp: [0, -1], ArrowDown: [0, 1], ArrowLeft: [-1, 0], ArrowRight: [1, 0] };
-    if (!dirs[k] || e.target.matches('input[type="range"]')) return;
+    if (!dirs[k] || e.target.matches('input[type="range"], textarea')) return;
     e.preventDefault();
     const [dx, dy] = dirs[k];
     if (S.step === 'corners') { const s = e.shiftKey ? 5 : S.nudge; nudgeCorner(dx * s, dy * s); }
