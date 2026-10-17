@@ -1,4 +1,6 @@
-# Pattern Projector
+# Notch
+
+By Good Morning Pins · https://notch.goodmorningpins.com
 
 A sewing pattern projector: calibrate a projector to your cutting mat, open a pattern PDF, put print-at-home pages together, mark pieces and tick them off as you cut.
 

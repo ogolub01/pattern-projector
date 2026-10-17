@@ -1,6 +1,6 @@
 {
-  "name": "Pattern Projector",
-  "short_name": "Projector",
+  "name": "Notch",
+  "short_name": "Notch",
   "start_url": "./",
   "scope": "./",
   "display": "fullscreen",
