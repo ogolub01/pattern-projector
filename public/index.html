@@ -161,6 +161,13 @@ input.serif { font-family: var(--serif); font-style: italic; font-size: 18px; }
 .asmRange output { min-width: 62px; text-align: right; font-size: 12px; font-variant-numeric: tabular-nums; }
 #sizeMark { border-color: var(--brass); color: var(--brass); animation: sizeNudge 1.6s ease 2; }
 @keyframes sizeNudge { 0%, 100% { box-shadow: 0 0 0 0 rgba(201,162,75,0); } 50% { box-shadow: 0 0 0 4px rgba(201,162,75,.28); } }
+#newAsk { position: fixed; inset: 0; z-index: 40; background: rgba(0,0,0,.6); display: flex; align-items: center; justify-content: center; padding: 16px; }
+#newAsk .card { width: min(380px, 100%); background: var(--panel); border: 1px solid var(--line); box-shadow: 0 20px 60px rgba(0,0,0,.6); padding: 22px 22px 20px; display: flex; flex-direction: column; gap: 12px; }
+#newAsk h2 { margin: 0; font-family: var(--serif); font-weight: 400; font-size: 30px; line-height: 1.05; }
+#newAsk h2 i { font-style: italic; }
+#newAsk .btn.danger { border-color: var(--danger); }
+.srow .slot { font-size: 9px; letter-spacing: .16em; text-transform: uppercase; color: var(--faint); }
+.srow.cur .slot { color: var(--brass); }
 #pwAsk { position: fixed; inset: 0; z-index: 40; background: rgba(0,0,0,.6); display: flex; align-items: center; justify-content: center; padding: 16px; }
 #pwAsk .card { width: min(380px, 100%); background: var(--panel); border: 1px solid var(--line); box-shadow: 0 20px 60px rgba(0,0,0,.6); padding: 22px 22px 20px; display: flex; flex-direction: column; gap: 12px; }
 #pwAsk h2 { margin: 0; font-family: var(--serif); font-weight: 400; font-size: 30px; line-height: 1.05; }
@@ -665,11 +672,12 @@ body.bare #gridPop { display: none !important; }
     </div>
 
     <details class="fold" data-fold="saved" id="patFold">
-      <summary>Saved patterns <span class="count" id="patCount"></span></summary>
+      <summary>Project <span class="count" id="patCount"></span></summary>
       <div class="body">
-        <p class="note" id="patNote">Every PDF you open is kept on this device with its page layout, pieces, cut ticks and lines, and reopens where you left off.</p>
+        <p class="note" id="patNote">Open a pattern PDF above to start a project. It's kept on this device with its page layout, pieces, cut ticks and lines, and reopens where you left off.</p>
         <div id="patList" class="group" style="gap:6px"></div>
-        <div class="group" id="patTools" hidden><button class="btn danger slim" id="clearPatterns" title="Removes every saved pattern from this device">✕ Clear</button></div>
+        <button class="btn slim" id="addLining" hidden title="Add the lining pattern to this project">+ Add lining PDF</button>
+        <div class="group" id="patTools" hidden><button class="btn danger slim" id="clearPatterns" title="Removes this project (main fabric and lining) from this device">✕ Clear project</button></div>
       </div>
     </details>
 
@@ -900,6 +908,15 @@ body.bare #gridPop { display: none !important; }
   <output id="eraseVal">12 mm</output>
   <button class="btn slim" id="eraseUndo">Undo</button>
   <button class="btn slim" id="eraseDone">Done</button>
+</div>
+<div id="newAsk" hidden role="dialog" aria-modal="true" aria-labelledby="newAskT">
+  <div class="card">
+    <span class="eyebrow">New project</span>
+    <h2 id="newAskT">Start a <i>new project?</i></h2>
+    <p class="note" id="newAskNote">Your current project will be gone from this device, with its marked pieces, lines and cut ticks.</p>
+    <button class="btn danger" id="newAskGo">Start new project · choose PDF</button>
+    <button class="btn" id="newAskCancel">Cancel · keep this project</button>
+  </div>
 </div>
 <div id="pwAsk" hidden role="dialog" aria-modal="true" aria-labelledby="pwAskT">
   <div class="card">
@@ -3196,7 +3213,7 @@ body.bare #gridPop { display: none !important; }
     composePattern(true); renderPieces();
   }
 
-  async function loadPdf(file, rec) {
+  async function loadPdf(file, rec, wantSlot) {
     if (!window.pdfjsLib) { toast('The PDF reader did not load. Check your connection and reload.'); return false; }
     await saveNow();                          // keep the pattern we're leaving exactly as it was
     SAVE.ready = false; SAVE.id = null;
@@ -3230,7 +3247,8 @@ body.bare #gridPop { display: none !important; }
         HIST.undo = []; HIST.redo = []; HIST.last = snapSafe(); syncUndoButtons();
       }
       renderPieces(); renderLineList();
-      SAVE.meta = { id, name: file.name, size: buf.byteLength, pages: pdf.numPages, created: (rec && rec.created) || Date.now(), opened: Date.now() };
+      const slot = (rec && rec.slot) || wantSlot || (PROJ.main && PROJ.main.id !== id ? 'lining' : 'main');
+      SAVE.meta = { id, slot, name: file.name, size: buf.byteLength, pages: pdf.numPages, created: (rec && rec.created) || Date.now(), opened: Date.now() };
       SAVE.id = id; SAVE.lastSig = ''; SAVE.ready = true; pset('pp_last', id);
       if (!rec || !rec.hasFile) DB.put('files', id, buf).then(() => { SAVE.meta.hasFile = true; saveNow(); }).catch(() => saveFailed());
       else { SAVE.meta.hasFile = true; }
@@ -3297,7 +3315,7 @@ body.bare #gridPop { display: none !important; }
     try {
       await DB.put('work', id, rec); SAVE.failed = false;
       if (!SAVE.asked && navigator.storage && navigator.storage.persist) { SAVE.asked = true; navigator.storage.persist().catch(() => {}); }
-      if ($('#patFold').open) renderPatternList();
+      if ($('#patFold').open || !PROJ.main || PROJ.main.id !== id && (!PROJ.lining || PROJ.lining.id !== id)) renderPatternList();
     } catch (err) { if (SAVE.lastSig === sig) SAVE.lastSig = ''; saveFailed(); }
   }
   setInterval(() => { if (document.visibilityState === 'visible') saveNow(); }, 5000);
@@ -3320,18 +3338,29 @@ body.bare #gridPop { display: none !important; }
     if (diff === 1) return 'yesterday ' + hm;
     return d.toLocaleDateString([], { day: 'numeric', month: 'short' });
   }
+  /* ---------- project (v134): main fabric + optional lining ----------
+     Change file starts a new project (asks first, clears once a PDF is picked); "+ Add lining PDF" fills the second space. */
+  const PROJ = { main: null, lining: null, mode: 'main', ok: false, pending: null };
+  async function loadProject() {
+    let list = [];
+    try { list = ((await DB.all('work')) || []).filter(r => r && r.id); } catch { PROJ.main = PROJ.lining = null; return null; }
+    list.sort((a, b) => (b.opened || 0) - (a.opened || 0));
+    let main = list.find(r => r.slot === 'main') || list.find(r => !r.slot) || null;
+    let lining = list.find(r => r.slot === 'lining' && (!main || r.id !== main.id)) || null;
+    // anything else (older saves from before projects) is tidied away
+    for (const r of list) if (r !== main && r !== lining) { try { await DB.del('work', r.id); await DB.del('files', r.id); } catch {} }
+    PROJ.main = main; PROJ.lining = lining;
+    return list;
+  }
   async function renderPatternList() {
     const box = $('#patList');
-    let list;
-    try { list = (await DB.all('work')) || []; }
-    catch { box.textContent = ''; $('#patCount').textContent = ''; $('#patNote').textContent = 'Saving patterns isn\'t available in this browser (private browsing, or storage turned off).'; return; }
-    list = list.filter(r => r && r.id).sort((a, b) => (b.opened || 0) - (a.opened || 0));
+    if (await loadProject() === null) { box.textContent = ''; $('#patNote').textContent = 'Saving isn\'t available in this browser (private browsing, or storage turned off).'; $('#patNote').hidden = false; $('#addLining').hidden = true; $('#patTools').hidden = true; return; }
     box.textContent = '';
-    $('#patCount').textContent = list.length ? String(list.length) : '';
-    list.forEach(r => {
+    const row = (r, label) => {
       const cur = r.id === SAVE.id;
-      const row = document.createElement('div'); row.className = 'srow' + (cur ? ' cur' : ''); row.setAttribute('role', 'button'); row.tabIndex = 0;
+      const el = document.createElement('div'); el.className = 'srow' + (cur ? ' cur' : ''); el.setAttribute('role', 'button'); el.tabIndex = 0;
       const sn = document.createElement('div'); sn.className = 'sn';
+      const sl = document.createElement('span'); sl.className = 'slot'; sl.textContent = label;
       const b = document.createElement('b'); b.textContent = r.name.replace(/\.pdf$/i, '');
       const m = document.createElement('span'); m.className = 'pmeta';
       const bits = [];
@@ -3339,34 +3368,69 @@ body.bare #gridPop { display: none !important; }
       if (r.pieces) bits.push(r.cut ? r.cut + ' / ' + r.pieces + ' cut' : r.pieces + ' piece' + (r.pieces > 1 ? 's' : ''));
       bits.push(cur ? 'open now' : whenText(r.opened));
       m.textContent = bits.join(' · ');
-      sn.append(b, m);
-      const more = document.createElement('button'); more.type = 'button'; more.className = 'more'; more.textContent = '⋯'; more.setAttribute('aria-label', 'Options for ' + r.name);
+      sn.append(sl, b, m); el.append(sn);
+      if (label === 'Lining') {
+        const more = document.createElement('button'); more.type = 'button'; more.className = 'more'; more.textContent = '⋯'; more.setAttribute('aria-label', 'Lining options');
+        more.addEventListener('click', e => { e.stopPropagation(); const rc = more.getBoundingClientRect(); toggleMenu('lining', () => liningMenu(r, rc.right, rc.bottom + 4)); });
+        el.append(more);
+      } else el.append(document.createElement('span'));
       const openIt = () => { if (cur) return; m.textContent = 'opening…'; reopenPattern(r.id).then(() => renderPatternList()); };
-      more.addEventListener('click', e => { e.stopPropagation(); const rc = more.getBoundingClientRect(); toggleMenu('saved:' + r.id, () => savedMenu(r, rc.right, rc.bottom + 4)); });
-      row.addEventListener('click', openIt);
-      row.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openIt(); } });
-      row.append(sn, more); box.append(row);
-    });
-    $('#patNote').hidden = list.length > 0;
-    $('#patTools').hidden = list.length === 0;
+      el.addEventListener('click', openIt);
+      el.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openIt(); } });
+      box.append(el);
+    };
+    if (PROJ.main) row(PROJ.main, 'Main fabric');
+    if (PROJ.lining) row(PROJ.lining, 'Lining');
+    $('#patCount').textContent = PROJ.main ? PROJ.main.name.replace(/\.pdf$/i, '') : '';
+    $('#patNote').hidden = !!PROJ.main;
+    $('#addLining').hidden = !PROJ.main || !!PROJ.lining;
+    $('#patTools').hidden = !PROJ.main;
   }
-  function savedMenu(r, x, y) {
-    const cur = r.id === SAVE.id, owner = 'saved:' + r.id;
-    const title = r.name.replace(/\.pdf$/i, '');
-    openMenu(title, [
-      ...(cur ? [] : [{ label: 'Open', fn: () => reopenPattern(r.id).then(() => renderPatternList()) }]),
-      { label: 'Remove from this device…', danger: true, keepOpen: true, fn: () => openMenu('Remove ' + title + '?', [
-        { label: 'Remove · its pieces, lines and layout go', danger: true, fn: async () => {
+  function liningMenu(r, x, y) {
+    openMenu('Lining', [
+      { label: 'Replace lining PDF…', fn: () => pickFile('lining') },
+      { label: 'Remove lining…', danger: true, keepOpen: true, fn: () => openMenu('Remove the lining?', [
+        { label: 'Remove · its pieces and lines go', danger: true, fn: async () => {
           try { await DB.del('work', r.id); await DB.del('files', r.id); } catch { toast('Could not remove it'); return; }
-          if (cur) { SAVE.id = null; SAVE.ready = false; }
-          if (pget('pp_last') === r.id) pset('pp_last', '');
-          toast(cur ? 'Removed from this device · it stays on screen until you open another' : 'Removed ' + title);
-          renderPatternList();
+          if (r.id === SAVE.id) { SAVE.id = null; SAVE.ready = false; }
+          if (pget('pp_last') === r.id) pset('pp_last', PROJ.main ? PROJ.main.id : '');
+          toast('Lining removed from the project'); renderPatternList();
         } },
-        { label: '← Back', keepOpen: true, fn: () => savedMenu(r, x, y) }
-      ], x, y, true, owner) }
-    ], x, y, true, owner);
+        { label: '← Back', keepOpen: true, fn: () => liningMenu(r, x, y) }
+      ], x, y, true, 'lining') }
+    ], x, y, true, 'lining');
   }
+  // open the file picker for one space; the picker must open straight from a tap
+  function pickFile(mode) { PROJ.mode = mode; PROJ.ok = true; const inp = $('#pdfInput'); inp.value = ''; inp.click(); setTimeout(() => { PROJ.ok = false; }, 1000); }
+  async function startNewProject(file) {
+    clearTimeout(SAVE.timer); SAVE.ready = false; SAVE.id = null; SAVE.lastSig = '';
+    try { await DB.clear('work'); await DB.clear('files'); } catch {}
+    PROJ.main = PROJ.lining = null; pset('pp_last', '');
+    await loadPdf(file, null, 'main');
+    renderPatternList();
+  }
+  async function addLining(file) {
+    if (!PROJ.main) { await startNewProject(file); return; }
+    const old = PROJ.lining;
+    const ok = await loadPdf(file, null, 'lining');
+    if (ok && old && old.id !== SAVE.id && old.id !== PROJ.main.id) { try { await DB.del('work', old.id); await DB.del('files', old.id); } catch {} }
+    if (ok) toast(SAVE.meta && SAVE.meta.slot === 'main' ? 'That PDF is already the main fabric' : 'Lining added · switch between them under Project');
+    renderPatternList();
+  }
+  function askNewProject(file) {
+    PROJ.pending = file || null;
+    const parts = [PROJ.main, PROJ.lining].filter(Boolean).map(r => r.name.replace(/\.pdf$/i, ''));
+    $('#newAskNote').textContent = (parts.length ? parts.join(' and ') : 'Your current project') + ' will be gone from this device, with marked pieces, lines and cut ticks.';
+    $('#newAskGo').textContent = file ? 'Start new project' : 'Start new project · choose PDF';
+    $('#newAsk').hidden = false; $('#newAskCancel').focus();
+  }
+  $('#newAskGo').addEventListener('click', () => {
+    $('#newAsk').hidden = true;
+    if (PROJ.pending) { const f = PROJ.pending; PROJ.pending = null; startNewProject(f); }
+    else pickFile('main');
+  });
+  $('#newAskCancel').addEventListener('click', () => { $('#newAsk').hidden = true; PROJ.pending = null; });
+  $('#addLining').addEventListener('click', () => pickFile('lining'));
   $('#patFold').addEventListener('toggle', () => { if ($('#patFold').open) renderPatternList(); });
   function layerGroups() { const g = S.occ && S.occ.getGroups ? S.occ.getGroups() : null; return g ? Object.entries(g) : []; }
   function buildLayers() {
@@ -5529,13 +5593,23 @@ body.bare #gridPop { display: none !important; }
 
   /* ---------- project controls ---------- */
   const input = $('#pdfInput'), drop = $('#drop');
-  $('#drop').addEventListener('click', () => { input.value = ''; });
-  input.addEventListener('change', () => { if (input.files[0]) loadPdf(input.files[0]); input.value = ''; });
+  // Change file = new project: ask first when there's a project to lose; nothing is cleared until a PDF is picked
+  $('#drop').addEventListener('click', e => {
+    if (e.target === input) return;
+    if (!PROJ.ok && PROJ.main) { e.preventDefault(); askNewProject(null); return; }
+    if (!PROJ.ok) PROJ.mode = 'main';
+    input.value = '';
+  });
+  input.addEventListener('change', () => {
+    const f = input.files[0], mode = PROJ.mode; PROJ.mode = 'main'; PROJ.ok = false; input.value = '';
+    if (!f) return;
+    if (mode === 'lining') addLining(f); else startNewProject(f);
+  });
   ['dragenter', 'dragover'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('over'); }));
   ['dragleave', 'drop'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove('over'); }));
-  drop.addEventListener('drop', e => { e.stopPropagation(); const f = e.dataTransfer.files[0]; if (f) loadPdf(f); });
+  drop.addEventListener('drop', e => { e.stopPropagation(); const f = e.dataTransfer.files[0]; if (f) { if (PROJ.main) askNewProject(f); else startNewProject(f); } });
   document.addEventListener('dragover', e => e.preventDefault());
-  document.addEventListener('drop', e => { e.preventDefault(); const f = e.dataTransfer && e.dataTransfer.files[0]; if (f && f.type === 'application/pdf') { go('project'); loadPdf(f); } });
+  document.addEventListener('drop', e => { e.preventDefault(); const f = e.dataTransfer && e.dataTransfer.files[0]; if (f && f.type === 'application/pdf') { go('project'); if (PROJ.main) askNewProject(f); else startNewProject(f); } });
 
   $('#prevPage').addEventListener('click', () => { if (S.pdf && S.pageNum > 1) { S.pageNum--; S.pieces = []; renderPage(true).then(renderPieces); } });
   $('#nextPage').addEventListener('click', () => { if (S.pdf && S.pageNum < S.pdf.numPages) { S.pageNum++; S.pieces = []; renderPage(true).then(renderPieces); } });
@@ -5870,12 +5944,12 @@ body.bare #gridPop { display: none !important; }
     });
   }
   // Clear: removes every saved pattern (PDFs and their work) from this device; the one on screen stays open but stops saving
-  twoTap($('#clearPatterns'), 'Clear', async () => {
-    try { await DB.clear('work'); await DB.clear('files'); } catch { toast('Could not clear the saved patterns'); return; }
-    clearTimeout(SAVE.timer); SAVE.id = null; SAVE.ready = false; SAVE.lastSig = ''; pset('pp_last', '');
+  twoTap($('#clearPatterns'), 'Clear project', async () => {
+    try { await DB.clear('work'); await DB.clear('files'); } catch { toast('Could not clear the project'); return; }
+    clearTimeout(SAVE.timer); SAVE.id = null; SAVE.ready = false; SAVE.lastSig = ''; pset('pp_last', ''); PROJ.main = PROJ.lining = null;
     renderPatternList();
-    toast(S.pdf ? 'Saved patterns cleared · the one on screen won\'t be kept unless you open it again' : 'Saved patterns cleared');
-  }, '✕', () => 'Tap again · clear all saved patterns');
+    toast(S.pdf ? 'Project cleared · the pattern on screen won\'t be kept unless you open it again' : 'Project cleared');
+  }, '✕', () => 'Tap again · clear this project');
   twoTap($('#resetPattern'), 'Reset pattern', () => {
     S.rot = 0; S.flip = false; S.pivotWhole = null; S.flipWhole = null; S.matSel = null;
     S.lines = []; S.selId = null; S.foldId = null; updateMirror();
@@ -6107,7 +6181,7 @@ body.bare #gridPop { display: none !important; }
   try { const tb = JSON.parse(pget('pp_tb') || 'null'); if (tb) { toolbox.classList.add('free'); toolbox.style.right = 'auto'; toolbox.style.left = tb[0] * innerWidth + 'px'; toolbox.style.top = Math.max(16, Math.min(innerHeight - 60, tb[1] * innerHeight)) + 'px'; } } catch {}
   placeToolbox(); showToolbox(); syncPenChip();
   if (pget('pp_snap') === '0') { S.snap = false; $('#tbSnap').classList.remove('on'); $('#tbSnap').setAttribute('aria-pressed', 'false'); }
-  renderLineList(); renderPieces();
+  renderLineList(); renderPieces(); renderPatternList();
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { drawGrid(); drawTest(); drawLines(); });
 })();
 </script>
