@@ -639,7 +639,7 @@ body.bare #gridPop { display: none !important; }
     <div class="group">
       <label class="filebtn" id="drop" for="pdfInput" title="Open a pattern PDF">
         <svg class="ic-open" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M12 16V4M7 9l5-5 5 5M4 20h16"/></svg><svg class="ic-folder" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M3 6.5V19h18V8.5h-9.5L9.5 6H3z"/><path d="M3 10h18"/></svg>
-        <b id="fileName">Sample pattern</b>
+        <b id="fileName">Add a pattern PDF</b>
         <span id="dropAct">OPEN PDF</span>
         <input type="file" id="pdfInput" accept="application/pdf" hidden>
       </label>
@@ -3174,6 +3174,24 @@ body.bare #gridPop { display: none !important; }
   }
 
   /* ---------- pattern rendering ---------- */
+  // no pattern open (fresh start or after Clear project): an empty mat with the grid on, file button back to Open PDF
+  function showBlank() {
+    S.blankShown = true;
+    S.pdf = null; S.occ = null; S.asm = null; S.fileName = null; S.pageNum = 1; S.textItems = [];
+    if (typeof ASM !== 'undefined') { ASM.last = null; ASM.cache.forEach(v => freeCanvas(v.c)); ASM.cache.clear(); ASM.key = ''; }
+    if (S.base) freeCanvas(S.base); S.base = null;
+    S.pieces = []; S.curPiece = -1; S.oneAt = false; $('#oneAtChk').checked = false;
+    S.lines = []; S.selId = null; S.foldId = null; S.draft = null;
+    S.rot = 0; S.flip = false; S.pivotWhole = null; S.flipWhole = null; S.matSel = null;
+    pdfC.width = 0; pdfC.height = 0;
+    buildLayers(); syncPageRow();
+    const d = $('#drop'); d.classList.remove('loaded'); d.title = 'Open a pattern PDF';
+    $('#fileName').textContent = 'Add a pattern PDF'; $('#dropAct').textContent = 'OPEN PDF';
+    renderPieces(); renderLineList(); drawLines(); drawPieces(); updateMirror();
+    if (S.step === 'project') placePattern();
+    if (!S.grid) setGrid(true); else drawGrid();
+    HIST.undo = []; HIST.redo = []; HIST.last = S.step === 'project' ? snapSafe() : null; syncUndoButtons();
+  }
   function renderSample() {
     const wmm = 760, hmm = 580;
     const c = document.createElement('canvas'); c.width = wmm * K; c.height = hmm * K;
@@ -5490,7 +5508,11 @@ body.bare #gridPop { display: none !important; }
     if (step !== 'project' && S.view.s !== 1) { S.view = { s: 1, tx: 0, ty: 0 }; $('#unzoom').hidden = true; }
     drawGrid(); drawTest(); applyTransform();
     if (step === 'project') {
-      if (!S.base) { renderSample(); const last = pget('pp_last'); if (last && !go.tried) { go.tried = true; reopenPattern(last, true); } } else placePattern();
+      if (!S.base) {
+        const last = pget('pp_last');
+        if (last && !go.tried) { go.tried = true; reopenPattern(last, true).then(ok => { if (!ok && !S.base) showBlank(); }); }
+        else if (!S.blankShown) showBlank();
+      } else placePattern();
       if (HIST.last === null) { HIST.last = snap(); syncUndoButtons(); }
       if (navigator.wakeLock && !wakeLock) navigator.wakeLock.request('screen').then(l => { wakeLock = l; l.addEventListener('release', () => wakeLock = null); }).catch(() => {});
     }
@@ -5947,8 +5969,8 @@ body.bare #gridPop { display: none !important; }
   twoTap($('#clearPatterns'), 'Clear project', async () => {
     try { await DB.clear('work'); await DB.clear('files'); } catch { toast('Could not clear the project'); return; }
     clearTimeout(SAVE.timer); SAVE.id = null; SAVE.ready = false; SAVE.lastSig = ''; pset('pp_last', ''); PROJ.main = PROJ.lining = null;
-    renderPatternList();
-    toast(S.pdf ? 'Project cleared · the pattern on screen won\'t be kept unless you open it again' : 'Project cleared');
+    showBlank(); renderPatternList();
+    toast('Project cleared');
   }, '✕', () => 'Tap again · clear this project');
   twoTap($('#resetPattern'), 'Reset pattern', () => {
     S.rot = 0; S.flip = false; S.pivotWhole = null; S.flipWhole = null; S.matSel = null;
