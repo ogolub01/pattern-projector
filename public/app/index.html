@@ -519,6 +519,29 @@ body.bare #gridPop { display: none !important; }
 @media (prefers-reduced-motion: no-preference) {
   .btn, .tab, .ib { transition: background .15s, border-color .15s, color .15s; }
 }
+
+/* ---------- phone (v136): just the mat, the corners, the mat size and Open PDF ---------- */
+#phoneBar, #phoneHint, #pbSheet { display: none; }
+body.phone #panel, body.phone #toolbox, body.phone #lineBar, body.phone #gridPop, body.phone #movePadBox,
+body.phone #reveal, body.phone #hHint, body.phone #fine, body.phone #unzoom { display: none !important; }
+body.phone #phoneBar { display: flex; position: fixed; left: 0; right: 0; top: 0; z-index: 20; align-items: center; gap: 8px;
+  padding: calc(9px + env(safe-area-inset-top, 0px)) calc(10px + env(safe-area-inset-right, 0px)) 9px calc(10px + env(safe-area-inset-left, 0px));
+  background: rgba(14,14,13,.94); border-bottom: 1px solid var(--line); }
+#phoneBar button { height: 40px; border: 1px solid var(--line); background: transparent; color: var(--ink); display: flex; align-items: center; justify-content: center; gap: 8px; padding: 0 10px; cursor: pointer; font-family: var(--mono); min-width: 0; }
+#phoneBar button[hidden] { display: none !important; }
+#phoneBar .pbIcon { width: 40px; padding: 0; color: var(--mute); flex-shrink: 0; }
+#pbSize, #pbFile { flex: 1; font-size: 14px; }
+#pbSize small { color: var(--faint); font-size: 11px; }
+#pbFile { justify-content: flex-start !important; overflow: hidden; }
+#pbFile i { font-family: var(--serif); font-size: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#pbOpen, #pbDone { background: var(--brass) !important; border-color: var(--brass) !important; color: #0E0E0D !important; font-size: 12px; letter-spacing: .08em; font-weight: 500; flex-shrink: 0; }
+body.phone #phoneHint { display: block; position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(24px + env(safe-area-inset-bottom, 0px)); z-index: 20;
+  padding: 9px 14px; border: 1px solid var(--brass); background: rgba(14,14,13,.94); color: var(--ink); font-size: 11.5px; white-space: nowrap; transition: opacity .6s ease; }
+body.phone #phoneHint.soft { border-color: var(--line); color: var(--mute); }
+body.phone #phoneHint.gone { opacity: 0; pointer-events: none; }
+body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-index: 45; background: rgba(0,0,0,.55); align-items: flex-start; justify-content: center; padding: calc(70px + env(safe-area-inset-top, 0px)) 12px 12px; }
+#pbSheet .card { width: 100%; max-width: 420px; background: var(--panel); border: 1px solid var(--line); box-shadow: 0 20px 60px rgba(0,0,0,.6); padding: 18px; display: flex; flex-direction: column; gap: 14px; }
+#pbSheet .seg .btn.on { background: var(--ink); color: var(--panel); border-color: var(--ink); }
 </style>
 
 <div id="stage" aria-label="Projection area">
@@ -1029,6 +1052,23 @@ body.bare #gridPop { display: none !important; }
   </div>
   <div class="pwStrip"><div class="pwTiles" id="pwTiles"></div></div>
 </div>
+<div id="phoneBar" aria-label="Notch controls">
+  <button class="pbIcon" id="pbFull" aria-label="Full screen"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
+  <button id="pbSize" aria-label="Mat size"><span id="pbSizeTxt">900 × 600</span><small id="pbUnit">mm</small></button>
+  <button id="pbFile" hidden aria-label="Pattern file · tap to start a new project"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#C9A24B" stroke-width="1.5" style="flex-shrink:0"><path d="M3 6.5V19h18V8.5h-9.5L9.5 6H3z"/></svg><i id="pbFileName">Pattern</i></button>
+  <button id="pbOpen">OPEN PDF</button>
+  <button id="pbDone" hidden>DONE</button>
+  <button class="pbIcon" id="pbCal" hidden aria-label="Calibrate"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 8V4h4M20 8V4h-4M4 16v4h4M20 16v4h-4"/><circle cx="12" cy="12" r="2.5"/></svg></button>
+</div>
+<div id="phoneHint" class="gone" role="status">Drag the four corners onto your mat</div>
+<div id="pbSheet" hidden role="dialog" aria-modal="true" aria-label="Mat size">
+  <div class="card">
+    <span class="eyebrow">Reference rectangle on your mat</span>
+    <div class="row2"><label class="f" for="pbW">Width<input type="number" id="pbW" inputmode="decimal" min="1"></label><label class="f" for="pbH">Height<input type="number" id="pbH" inputmode="decimal" min="1"></label></div>
+    <div class="seg"><button class="btn" data-pu="mm">MM</button><button class="btn" data-pu="cm">CM</button><button class="btn" data-pu="in">IN</button></div>
+    <button class="btn primary" id="pbSheetDone">Done</button>
+  </div>
+</div>
 <div id="toast" hidden></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js"></script>
@@ -1060,6 +1100,9 @@ body.bare #gridPop { display: none !important; }
     checks: (() => { try { return JSON.parse(localStorage.getItem('pp_checks')) || {}; } catch { return {}; } })()
   };
 
+  // phones get the most minimal Notch: the mat, its corners, the mat size and Open PDF (v136)
+  const PHONE = matchMedia('(pointer: coarse) and (max-width: 600px), (pointer: coarse) and (max-height: 500px)').matches;
+  if (PHONE) document.body.classList.add('phone');
   /* ---------- storage (per browser, best effort) ---------- */
   const KEY = 'pp_setups_v1';
   const loadSetups = () => { try { return JSON.parse(localStorage.getItem(KEY)) || []; } catch { return []; } };
@@ -1147,11 +1190,12 @@ body.bare #gridPop { display: none !important; }
 
   /* ---------- corners ---------- */
   function defaultCorners() {
-    const vw = innerWidth, vh = innerHeight, pad = Math.min(vw, vh) * 0.12;
+    const top = PHONE ? (document.getElementById('phoneBar').offsetHeight || 58) : 0;
+    const vw = innerWidth, vh = innerHeight - top, pad = Math.min(vw, vh) * 0.12;
     const aw = vw - pad * 2, ah = vh - pad * 2, ar = S.w / S.h;
     let w = aw, h = aw / ar;
     if (h > ah) { h = ah; w = ah * ar; }
-    const x = (vw - w) / 2, y = (vh - h) / 2;
+    const x = (vw - w) / 2, y = top + (vh - h) / 2;
     return [[x, y], [x + w, y], [x + w, y + h], [x, y + h]];
   }
   function applyTransform() {
@@ -3289,8 +3333,10 @@ body.bare #gridPop { display: none !important; }
       if (resume) {
         const n = S.pieces.length, cut = S.pieces.filter(q => q.cut).length;
         toast('Picked up where you left off' + (n ? ' · ' + n + ' piece' + (n > 1 ? 's' : '') + (cut ? ', ' + cut + ' cut' : '') : '') + (S.asm ? ' · pages put together' : ''));
-      } else if (pdf.numPages > 1) { $('#asmAskPages').textContent = pdf.numPages + ' pages'; $('#asmAsk').hidden = false; $('#asmAskGo').focus(); }
+      } else if (PHONE) { /* the phone asks nothing: straight to the pattern */ }
+      else if (pdf.numPages > 1) { $('#asmAskPages').textContent = pdf.numPages + ' pages'; $('#asmAsk').hidden = false; $('#asmAskGo').focus(); }
       else askPieces();
+      if (PHONE) { if (S.step !== 'project') go('project'); else phoneSync(true); }
       return true;
     } catch (err) {
       console.error(err);
@@ -5533,6 +5579,7 @@ body.bare #gridPop { display: none !important; }
     }
     showToolbox();
     setTool(S.tool);
+    if (PHONE) phoneSync(true);
   }
   $$('.tab').forEach(t => t.addEventListener('click', () => {
     if (t.dataset.tab === 'calibrate') go(S.calStep); else go('project', t.dataset.tab);
@@ -6205,6 +6252,60 @@ body.bare #gridPop { display: none !important; }
     clearTimeout(toastTimer); toastTimer = setTimeout(() => t.hidden = true, /^Error/.test(msg) ? 10000 : 3600);
   }
 
+  /* ---------- phone (v136) ---------- */
+  const PH = { hintDone: pget('pp_ph_hint') === '1', hintT: null };
+  const fmtN = v => String(+v.toFixed(S.unit === 'mm' ? 0 : 1));
+  function phoneSync(entered) {
+    if (!PHONE) return;
+    const cal = S.step !== 'project', has = !!S.pdf;
+    $('#pbSize').hidden = !cal; $('#pbOpen').hidden = !(cal && !has); $('#pbDone').hidden = !(cal && has);
+    $('#pbFile').hidden = cal; $('#pbCal').hidden = cal;
+    $('#pbFileName').textContent = S.fileName ? S.fileName.replace(/\.pdf$/i, '') : 'Open PDF';
+    const f = UNIT[S.unit]; $('#pbSizeTxt').textContent = fmtN(S.w / f) + ' × ' + fmtN(S.h / f); $('#pbUnit').textContent = S.unit;
+    const hint = $('#phoneHint'); clearTimeout(PH.hintT);
+    if (cal) { hint.textContent = 'Drag the four corners onto your mat'; hint.classList.remove('soft'); hint.classList.toggle('gone', PH.hintDone); }
+    else if (entered && has) { hint.textContent = 'Drag to move · two fingers to turn'; hint.classList.add('soft'); hint.classList.remove('gone'); PH.hintT = setTimeout(() => hint.classList.add('gone'), 3500); }
+    else hint.classList.add('gone');
+  }
+  function phoneSaveCal() {
+    if (!PHONE) return;
+    pset('pp_phone_cal', JSON.stringify({ c: S.corners, w: S.w, h: S.h, u: S.unit, ww: innerWidth, wh: innerHeight }));
+  }
+  function phoneStart() {
+    let cal = null; try { cal = JSON.parse(pget('pp_phone_cal')); } catch {}
+    const same = !!cal && Array.isArray(cal.c) && cal.c.length === 4 && Math.abs(cal.ww - innerWidth) < 3 && Math.abs(cal.wh - innerHeight) < 3;
+    if (same) {
+      S.w = cal.w; S.h = cal.h; S.unit = cal.u || S.unit; S.corners = cal.c.map(q => [q[0], q[1]]);
+      $$('[data-unit]').forEach(x => x.classList.toggle('on', x.dataset.unit === S.unit)); showMat();
+    } else S.corners = defaultCorners();
+    applyTransform(); drawGrid();
+    if (same && pget('pp_last')) go('project'); else go('corners');
+  }
+  if (PHONE) {
+    $('#pbFull').addEventListener('click', () => {
+      const d = document;
+      if (d.fullscreenElement) { d.exitFullscreen().catch(() => {}); return; }
+      const no = () => toast('Add Notch to your Home Screen (Share → Add to Home Screen) to use it full screen');
+      if (d.documentElement.requestFullscreen) d.documentElement.requestFullscreen().catch(no); else no();
+    });
+    $('#pbOpen').addEventListener('click', () => $('#drop').click());
+    $('#pbFile').addEventListener('click', () => $('#drop').click());
+    $('#pbCal').addEventListener('click', () => go('corners'));
+    $('#pbDone').addEventListener('click', () => { phoneSaveCal(); go('project'); });
+    handles.forEach(h => {
+      h.addEventListener('pointerdown', () => { if (!PH.hintDone) { PH.hintDone = true; pset('pp_ph_hint', '1'); $('#phoneHint').classList.add('gone'); } });
+      h.addEventListener('pointerup', phoneSaveCal);
+    });
+    const sheet = $('#pbSheet');
+    const fillSheet = () => { const f = UNIT[S.unit]; $('#pbW').value = fmtN(S.w / f); $('#pbH').value = fmtN(S.h / f); $$('[data-pu]').forEach(b => b.classList.toggle('on', b.dataset.pu === S.unit)); };
+    $('#pbSize').addEventListener('click', () => { fillSheet(); sheet.hidden = false; });
+    ['pbW', 'pbH'].forEach((id, k) => $('#' + id).addEventListener('input', e => { const t = $(k ? '#matH' : '#matW'); t.value = e.target.value; t.dispatchEvent(new Event('input')); phoneSync(); }));
+    $$('[data-pu]').forEach(b => b.addEventListener('click', () => { const u = $(`[data-unit="${b.dataset.pu}"]`); if (u) u.click(); fillSheet(); phoneSync(); }));
+    const closeSheet = () => { sheet.hidden = true; phoneSaveCal(); phoneSync(); };
+    $('#pbSheetDone').addEventListener('click', closeSheet);
+    sheet.addEventListener('click', e => { if (e.target === sheet) closeSheet(); });
+  }
+
   /* ---------- start ---------- */
   S.corners = defaultCorners();
   try {
@@ -6230,6 +6331,7 @@ body.bare #gridPop { display: none !important; }
   placeToolbox(); showToolbox(); syncPenChip();
   if (pget('pp_snap') === '0') { S.snap = false; $('#tbSnap').classList.remove('on'); $('#tbSnap').setAttribute('aria-pressed', 'false'); }
   renderLineList(); renderPieces(); renderPatternList();
+  if (PHONE) phoneStart();
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { drawGrid(); drawTest(); drawLines(); });
 })();
 </script>
