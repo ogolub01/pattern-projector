@@ -93,6 +93,10 @@ button:disabled { opacity: .5; cursor: wait; }
 footer .foot { border-top: 1px solid var(--ink); padding: 18px 0 calc(28px + env(safe-area-inset-bottom, 0px)); font-family: var(--mono); font-size: 13px; color: var(--graphite); display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
 
 @media (max-width: 860px) {
+  /* phones and tablets: Bodoni's small-text cut (low optical size) has sturdier thin strokes, which hold up on small screens */
+  .intro .copy p, .feat p, .list p { font-variation-settings: 'opsz' 9; font-weight: 450; }
+  .deck p, .feat h3 { font-variation-settings: 'opsz' 14; }
+  .feat p, .list p { color: #3A3833; }
   .deck, .intro, .list .box { grid-template-columns: 1fr; }
   .deck .cta { justify-self: start; text-align: left; }
   .featgrid { grid-template-columns: 1fr 1fr; }
