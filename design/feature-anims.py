@@ -172,22 +172,22 @@ def quiet():
     return svg(ui + pat + cover, 'The projection fades to black so the fabric can be seen on its own, and a tap brings the pattern back')
 
 FEATS = [
-    ('Calibrate to your mat', calibrate,
-     'Drag the four corners of the projected grid onto the corners of your cutting mat and Notch works out the rest, so ten centimetres on the pattern is ten centimetres on the mat, even with the projector at an angle. Save the setup and it’s ready the next time you sew.'),
-    ('Mark a piece with one tap', fill,
-     'Tap inside a pattern piece and the fill spreads right up to its cutting line and stops there, taking in the seam allowance and notches but never spilling into the piece next door. Give it a name and it stays marked with the pattern.'),
-    ('Watch the cut pieces fade', dim,
-     'Tick a piece off once it’s cut and it dims on the mat, so the pieces still waiting stand out clearly and nothing gets cut twice or quietly forgotten.'),
-    ('Move one piece on its own', single,
-     'Pick out a single piece and the rest step aside, so you can slide and turn just that one into place on the fabric while the others wait their turn.'),
-    ('Mirror the centre front', mirror,
-     'For a piece that’s cut on the fold, draw along the centre front and Notch mirrors the other half across it, so you see the whole front flat on the fabric, ready for single-layer cutting or a print you want to place.'),
-    ('Go quiet to see the fabric', quiet,
-     'One tap fades the whole projection to black so you can see the fabric itself, to check a chalk mark or how the print falls, and a tap anywhere brings the pattern straight back.'),
+    ('Line it up with your mat', calibrate,
+     'Drag the four corners of the grid onto the corners of your mat and that’s it. Ten centimetres on the pattern is ten centimetres on the mat, even if your projector sits a bit wonky. It remembers, so next time you can get straight to sewing.'),
+    ('Tap to mark a piece', fill,
+     'Tap inside a pattern piece and it fills right up to the cutting line, notches and all, without spilling into the piece next door. Give it a name and it’s saved with your pattern.'),
+    ('Cut pieces fade away', dim,
+     'Tick a piece off once it’s cut and it goes dim, so you can see what’s left. Nothing gets cut twice, or forgotten (which is more my style).'),
+    ('Move one piece at a time', single,
+     'Pick a piece and the rest step aside, so you can shuffle just that one around your fabric until it fits.'),
+    ('Open out the fold', mirror,
+     'For a piece cut on the fold, draw along the fold line and Notch mirrors the other half, so you see the whole piece. Handy for cutting on a single layer, or placing a print just where you want it.'),
+    ('Hide it for a moment', quiet,
+     'One tap and the pattern fades away, so you can see the actual fabric, check a chalk mark or how a print falls. Tap again and it’s back.'),
 ]
 
 print('<section class="wrap feats" aria-labelledby="featsT">')
-print('  <h2 id="featsT">Made for the cutting table</h2>')
+print('  <h2 id="featsT">A few things it does</h2>')
 print('  <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>'
       '<pattern id="fg1" width="20" height="20" patternUnits="userSpaceOnUse"><path d="M20 0H0V20" fill="none" stroke="#EDEAE2" stroke-opacity=".06"/></pattern>'
       '<pattern id="fg5" width="100" height="100" patternUnits="userSpaceOnUse"><path d="M100 0H0V100" fill="none" stroke="#EDEAE2" stroke-opacity=".14"/></pattern>'
