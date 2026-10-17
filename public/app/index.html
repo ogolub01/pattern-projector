@@ -524,13 +524,17 @@ body.bare #gridPop { display: none !important; }
 #phoneBar, #phoneHint, #pbSheet { display: none; }
 body.phone #panel, body.phone #toolbox, body.phone #lineBar, body.phone #gridPop, body.phone #movePadBox,
 body.phone #reveal, body.phone #hHint, body.phone #fine, body.phone #unzoom { display: none !important; }
-body.phone #phoneBar { display: flex; position: fixed; left: 0; right: 0; top: 0; z-index: 20; align-items: center; gap: 8px;
+html.phone, body.phone { position: fixed; inset: 0; width: 100%; height: 100%; overflow: hidden; overscroll-behavior: none; touch-action: none; }
+body.phone #pbSheet input { font-size: 16px; }
+body.phone #phoneBar { box-sizing: border-box; width: 100%; max-width: 100vw;
+  display: flex; position: fixed; left: 0; right: 0; top: 0; z-index: 20; align-items: center; gap: 8px;
   padding: calc(9px + env(safe-area-inset-top, 0px)) calc(10px + env(safe-area-inset-right, 0px)) 9px calc(10px + env(safe-area-inset-left, 0px));
   background: rgba(14,14,13,.94); border-bottom: 1px solid var(--line); }
 #phoneBar button { height: 40px; border: 1px solid var(--line); background: transparent; color: var(--ink); display: flex; align-items: center; justify-content: center; gap: 8px; padding: 0 10px; cursor: pointer; font-family: var(--mono); min-width: 0; }
 #phoneBar button[hidden] { display: none !important; }
 #phoneBar .pbIcon { width: 40px; padding: 0; color: var(--mute); flex-shrink: 0; }
-#pbSize, #pbFile { flex: 1; font-size: 14px; }
+#pbSize, #pbFile { flex: 1 1 0; font-size: 14px; overflow: hidden; white-space: nowrap; }
+#pbOpen { padding: 0 12px !important; }
 #pbSize small { color: var(--faint); font-size: 11px; }
 #pbFile { justify-content: flex-start !important; overflow: hidden; }
 #pbFile i { font-family: var(--serif); font-size: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -1102,7 +1106,13 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
 
   // phones get the most minimal Notch: the mat, its corners, the mat size and Open PDF (v136)
   const PHONE = matchMedia('(pointer: coarse) and (max-width: 600px), (pointer: coarse) and (max-height: 500px)').matches;
-  if (PHONE) document.body.classList.add('phone');
+  if (PHONE) {
+    document.body.classList.add('phone'); document.documentElement.classList.add('phone');
+    // stop Safari zooming in on the mat-size boxes and sliding the screen sideways
+    const vm = document.querySelector('meta[name=viewport]');
+    if (vm) vm.setAttribute('content', 'width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover');
+    window.addEventListener('scroll', () => { if (scrollX || scrollY) scrollTo(0, 0); });
+  }
   /* ---------- storage (per browser, best effort) ---------- */
   const KEY = 'pp_setups_v1';
   const loadSetups = () => { try { return JSON.parse(localStorage.getItem(KEY)) || []; } catch { return []; } };
@@ -1198,7 +1208,15 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
     const x = (vw - w) / 2, y = top + (vh - h) / 2;
     return [[x, y], [x + w, y], [x + w, y + h], [x, y + h]];
   }
+  // Corners never leave the visible screen (and on a phone, never slip under the bar)
+  function clampCorners() {
+    if (!S.corners) return;
+    const m = 22, top = (PHONE ? (document.getElementById('phoneBar').offsetHeight || 58) : 0) + 40;
+    const r = innerWidth - m, b = innerHeight - 40;
+    S.corners.forEach(c => { c[0] = Math.min(Math.max(c[0], m), Math.max(m, r)); c[1] = Math.min(Math.max(c[1], top), Math.max(top, b)); });
+  }
   function applyTransform() {
+    clampCorners();
     const W = S.w * K, Hh = S.h * K;
     const src = [[0, 0], [W, 0], [W, Hh], [0, Hh]];
     const v = S.view, zoomed = S.step === 'project' && v.s !== 1;
