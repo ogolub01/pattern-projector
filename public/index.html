@@ -159,13 +159,8 @@ input.serif { font-family: var(--serif); font-style: italic; font-size: 18px; }
 .asmRange { display: flex; align-items: center; gap: 8px; }
 .asmRange input { flex: 1; min-width: 120px; }
 .asmRange output { min-width: 62px; text-align: right; font-size: 12px; font-variant-numeric: tabular-nums; }
-#sizeAsk { position: fixed; inset: 0; z-index: 40; background: rgba(0,0,0,.6); display: flex; align-items: center; justify-content: center; padding: 16px; }
-#sizeAsk .card { width: min(420px, 100%); max-height: calc(100% - 32px); overflow: auto; background: var(--panel); border: 1px solid var(--line); box-shadow: 0 20px 60px rgba(0,0,0,.6); padding: 22px 22px 20px; display: flex; flex-direction: column; gap: 12px; }
-#sizeAsk h2 { margin: 0; font-family: var(--serif); font-weight: 400; font-size: 30px; line-height: 1.05; }
-#sizeAsk h2 i { font-style: italic; }
-.sizeGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(72px, 1fr)); gap: 6px; }
-.sizeGrid .btn { height: 48px; padding: 0 6px; font-family: var(--serif); font-style: italic; font-size: 19px; letter-spacing: 0; text-transform: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.sizeGrid .btn:hover { border-color: var(--brass); color: var(--brass); }
+#sizeMark { border-color: var(--brass); color: var(--brass); animation: sizeNudge 1.6s ease 2; }
+@keyframes sizeNudge { 0%, 100% { box-shadow: 0 0 0 0 rgba(201,162,75,0); } 50% { box-shadow: 0 0 0 4px rgba(201,162,75,.28); } }
 #pwAsk { position: fixed; inset: 0; z-index: 40; background: rgba(0,0,0,.6); display: flex; align-items: center; justify-content: center; padding: 16px; }
 #pwAsk .card { width: min(380px, 100%); background: var(--panel); border: 1px solid var(--line); box-shadow: 0 20px 60px rgba(0,0,0,.6); padding: 22px 22px 20px; display: flex; flex-direction: column; gap: 12px; }
 #pwAsk h2 { margin: 0; font-family: var(--serif); font-weight: 400; font-size: 30px; line-height: 1.05; }
@@ -725,6 +720,7 @@ body.bare #gridPop { display: none !important; }
       <summary>Sizes <span class="count" id="layerCount"></span></summary>
       <div class="body">
         <div class="row2"><button class="btn slim" id="layersAll">All sizes</button><button class="btn slim" id="layersNone">None</button></div>
+        <button class="btn slim" id="sizeMark" hidden title="Mark the pieces of the size that's showing">Mark pieces</button>
         <div id="layerList"></div>
       </div>
     </details>
@@ -903,15 +899,6 @@ body.bare #gridPop { display: none !important; }
   <output id="eraseVal">12 mm</output>
   <button class="btn slim" id="eraseUndo">Undo</button>
   <button class="btn slim" id="eraseDone">Done</button>
-</div>
-<div id="sizeAsk" hidden role="dialog" aria-modal="true" aria-labelledby="sizeAskT">
-  <div class="card">
-    <span class="eyebrow" id="sizeAskCount">Several sizes</span>
-    <h2 id="sizeAskT">Which <i>size?</i></h2>
-    <p class="note">Pick your size to see only its lines, then mark the pieces. Or keep every size showing to trace without marking.</p>
-    <div class="sizeGrid" id="sizeAskList"></div>
-    <button class="btn" id="sizeAskAll">All sizes · no piece marking</button>
-  </div>
 </div>
 <div id="pwAsk" hidden role="dialog" aria-modal="true" aria-labelledby="pwAskT">
   <div class="card">
@@ -3088,44 +3075,26 @@ body.bare #gridPop { display: none !important; }
   document.addEventListener('keyup', e => { if (PW.open && e.code === 'Space') { PW.space = false; pwStage.classList.remove('hand'); } }, true);
   // after opening a PDF: mark the pieces now, or skip and use the whole pattern
   function askPiecesNow() { PW.rot = 0; if (S.pieces.length) return; $('#pwAsk').hidden = false; $('#pwAskGo').focus(); }
-  /* ---------- which size? (v133) ----------
-     A PDF with size layers asks for the size first. One size: only its lines show (plus layers that aren't
-     sizes, like text or notches), then "Mark your pieces?". All sizes: everything shows and no marking is asked. */
+  /* ---------- sizes (v134) ---------- */
   const isSizeName = n => {
     let t = String(n || '').trim().replace(/^(size|sizes|razmer|размер|р-р|eu|uk|us|fr|it|de|int)\.?\s*/i, '').trim();
     return /^(\d{1,3}(\s*[\/\-–]\s*\d{1,3})?|x{0,4}s|x{0,4}l|m|\d\s*x{1,2}[sl]|one\s*size|os)$/i.test(t);
   };
-  function sizeChoices() {
-    const groups = layerGroups(); if (groups.length < 2) return null;
-    const sizes = groups.filter(([, g]) => isSizeName(g.name));
-    if (sizes.length >= 2) return { sizes, other: groups.filter(x => !sizes.includes(x)).map(([id]) => id) };
-    if (sizes.length === 0) return { sizes: groups, other: [] };   // names don't look like sizes: offer every layer
-    return null;
-  }
+  // multi-size PDFs open as they are, all sizes on, with no questions; the Sizes list offers marking once one size shows
   function askPieces() {
     if (S.pieces.length) return;
-    const ch = !S.sizeAsked && sizeChoices();
-    if (ch) { S.sizeAsked = true; openSizeAsk(ch); return; }
+    if (layerGroups().length >= 2) return;
     askPiecesNow();
   }
-  function openSizeAsk(ch) {
-    $('#sizeAskCount').textContent = ch.sizes.length + ' sizes in this pattern';
-    const list = $('#sizeAskList'); list.textContent = '';
-    ch.sizes.forEach(([id, g], n) => {
-      const b = document.createElement('button'); b.type = 'button'; b.className = 'btn'; b.textContent = g.name || ('Size ' + (n + 1)); b.title = 'Show only size ' + (g.name || n + 1);
-      b.addEventListener('click', () => pickSize(ch, id, g.name)); list.append(b);
-    });
-    $('#sizeAsk').hidden = false;
-    const first = list.querySelector('button'); if (first) first.focus();
-  }
-  async function pickSize(ch, id, name) {
-    $('#sizeAsk').hidden = true;
-    layerGroups().forEach(([lid]) => S.occ.setVisibility(lid, id === null || lid === id || ch.other.includes(lid)));
-    buildLayers();
-    await renderPage(false);
-    if (id === null) { toast('All sizes showing · you can mark pieces any time from Pattern pieces'); return; }
-    toast('Showing size ' + name + ' · change it any time under Sizes');
-    askPiecesNow();
+  function syncSizeMark() {
+    const b = $('#sizeMark'); if (!b) return;
+    const vis = layerGroups().filter(([, g]) => g.visible !== false);
+    const sized = vis.filter(([, g]) => isSizeName(g.name));
+    const one = sized.length === 1 ? sized[0] : vis.length === 1 ? vis[0] : null;
+    const show = !!one && layerGroups().length >= 2 && !S.pieces.length;
+    const label = show ? 'Mark pieces · size ' + (one[1].name || '') : '';
+    if (show && (b.hidden || b.textContent !== label)) { b.textContent = label; b.hidden = false; b.style.animation = 'none'; void b.offsetWidth; b.style.animation = ''; }
+    else if (!show) b.hidden = true;
   }
 
   $('#pwAskGo').addEventListener('click', openPieces);
@@ -3164,6 +3133,7 @@ body.bare #gridPop { display: none !important; }
       row.append(cb, pn, more); box.append(row);
     });
     $('#pieceStepper').hidden = !S.oneAt;
+    syncSizeMark();
     $('#curPieceName').textContent = curPiece() ? pName(curPiece()) : '';
   }
   function focusPiece(i, bring, keepList) {
@@ -3244,7 +3214,7 @@ body.bare #gridPop { display: none !important; }
       $('#pageRow').hidden = pdf.numPages < 2; S.asm = null; ASM.last = null;
       S.rot = 0; S.flip = false; S.pivotWhole = null; S.flipWhole = null; S.matSel = null; S.pieces = []; S.curPiece = -1; S.oneAt = false; $('#oneAtChk').checked = false;
       S.lines = S.lines.filter(l => !l.pinned); S.foldId = null;
-      HIST.undo = []; HIST.redo = []; HIST.last = null; S.sizeAsked = false;
+      HIST.undo = []; HIST.redo = []; HIST.last = null;
       if (resume) {
         S.pageNum = Math.min(Math.max(1, rec.pageNum || 1), pdf.numPages);
         S.asm = rec.asm || null;
@@ -3415,6 +3385,7 @@ body.bare #gridPop { display: none !important; }
     record();
     const g = layerGroups(); const on = g.filter(([, grp]) => grp.visible !== false).length;
     $('#layerCount').textContent = g.length ? `${on} of ${g.length}` : '';
+    syncSizeMark();
   }
   function setLayers(test) {
     layerGroups().forEach(([id]) => S.occ.setVisibility(id, test(id)));
@@ -3803,7 +3774,7 @@ body.bare #gridPop { display: none !important; }
   (function () {
     $('#asmAskGo').addEventListener('click', openAssemble);
     $('#asmAskSkip').addEventListener('click', () => { $('#asmAsk').hidden = true; askPieces(); });
-    $('#sizeAskAll').addEventListener('click', () => { const ch = sizeChoices(); if (ch) pickSize(ch, null); else $('#sizeAsk').hidden = true; });
+    $('#sizeMark').addEventListener('click', () => $('#editPiecesBtn').click());
     $('#asmOpen').addEventListener('click', openAssemble);
     $('#asmOpen2').addEventListener('click', openAssemble);
     $('#asmCancel').addEventListener('click', closeAssemble);
