@@ -35,7 +35,7 @@ a { color: inherit; }
 
 /* masthead: the name set like a magazine cover */
 .mast { padding-top: clamp(20px, 4vw, 40px); }
-.mastbar { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; font-family: var(--mono); font-size: 13px; color: var(--graphite); border-bottom: 1px solid var(--ink); padding-bottom: 10px; }
+.mastbar { display: flex; justify-content: flex-end; min-height: 1.2em; align-items: baseline; gap: 16px; font-family: var(--mono); font-size: 13px; color: var(--graphite); border-bottom: 1px solid var(--ink); padding-bottom: 10px; }
 .mastbar .own { display: none; color: var(--brass); text-decoration: none; }
 .mastbar .own.on { display: inline; }
 .mastbar .own:hover { text-decoration: underline; }
@@ -121,7 +121,6 @@ footer .foot { border-top: 1px solid var(--ink); padding: 18px 0 calc(28px + env
 <body>
 <header class="wrap mast">
   <div class="mastbar">
-    <span>A pattern projector I’m making · Good Morning Pins</span>
     <a class="own" id="own" href="/app/">Open your Notch</a>
   </div>
   <h1>Notch</h1>
