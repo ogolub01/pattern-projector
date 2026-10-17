@@ -6295,7 +6295,13 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
     if (same) {
       S.w = cal.w; S.h = cal.h; S.unit = cal.u || S.unit; S.corners = cal.c.map(q => [q[0], q[1]]);
       $$('[data-unit]').forEach(x => x.classList.toggle('on', x.dataset.unit === S.unit)); showMat();
-    } else S.corners = defaultCorners();
+    } else {
+      // phone only, first time: a portrait 600 × 900 mm mat so the grid fills the tall screen
+      if (cal && cal.w && cal.h) { S.w = cal.w; S.h = cal.h; S.unit = cal.u || S.unit; }
+      else { S.w = 600; S.h = 900; S.unit = 'mm'; }
+      $$('[data-unit]').forEach(x => x.classList.toggle('on', x.dataset.unit === S.unit)); try { showMat(); } catch {}
+      S.corners = defaultCorners();
+    }
     applyTransform(); drawGrid();
     if (same && pget('pp_last')) go('project'); else go('corners');
   }
