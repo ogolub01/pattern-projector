@@ -4,5 +4,9 @@
   "compatibility_date": "2026-10-01",
   "assets": {
     "directory": "./public"
-  }
+  },
+  // the app's own address (goodmorningpins.com is registered in the same Cloudflare account)
+  "routes": [
+    { "pattern": "notch.goodmorningpins.com", "custom_domain": true }
+  ]
 }
