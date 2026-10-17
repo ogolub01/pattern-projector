@@ -179,7 +179,7 @@ FEATS = [
     ('Cut pieces fade away', dim,
      'Tick a piece off once it’s cut and it goes dim. It’s just a nice way to keep track of what you’ve done so far, especially on a bigger project. Nothing gets cut twice, or forgotten (which is more my style).'),
     ('Move one piece at a time', single,
-     'Pick a piece and the rest step aside, so you can move just that one around your fabric. It turns freely too, not just in 90° steps. If my fabric has shifted a little on the mat, I’d rather turn one piece by 2 degrees to match the grain than shuffle the whole fabric back into place.'),
+     'Pick a piece and the rest step aside, so you can move just that one around your fabric. It turns freely too. If my fabric has shifted a little on the mat, I’d rather turn one piece by 2 degrees to match the grain than shuffle the whole fabric back into place.'),
     ('Open out the fold', mirror,
      'For a piece cut on the fold, draw along the fold line and Notch mirrors the other half, so you see the whole piece. The fold line snaps onto the actual line of the pattern, so it’s spot on. Handy for cutting on a single layer, or placing a print just where you want it.'),
     ('Hide it for a moment', quiet,
