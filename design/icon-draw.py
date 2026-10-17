@@ -64,7 +64,11 @@ def draw(piece, frame='full', notches=False, grain=False, cross=True, N=1024):
     if cross:
         cx,cy=(0.50,0.55) if piece=='sleeve' else (0.60,0.62); r=0.028
         if not grain:
-            d.line([P((cx-r,cy)),P((cx+r,cy))],fill=BRASS,width=int(pw*0.8)); d.line([P((cx,cy-r)),P((cx,cy+r))],fill=BRASS,width=int(pw*0.8))
+            # the app's rotation-point mark: a small circle with four ticks (same proportions as #pivotMark, 26 px box)
+            u=0.072/12; sw=int(pw*0.8)
+            d.ellipse([P((cx-6*u,cy-6*u)),P((cx+6*u,cy+6*u))],outline=BRASS,width=sw)
+            for (ax,ay,bx,by) in [(0,-12,0,-5),(0,5,0,12),(-12,0,-5,0),(5,0,12,0)]:
+                d.line([P((cx+ax*u,cy+ay*u)),P((cx+bx*u,cy+by*u))],fill=BRASS,width=sw)
     return im.resize((N,N),Image.LANCZOS)
 def rounded(im,n):
     s=im.resize((n,n),Image.LANCZOS); mask=Image.new('L',(n*4,n*4),0); ImageDraw.Draw(mask).rounded_rectangle([0,0,n*4-1,n*4-1],radius=int(n*4*0.225),fill=255)
