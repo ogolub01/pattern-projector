@@ -1,7 +1,11 @@
-# Always check for a new version of the app itself, so updates show on the next reload
+# Always check for a new version of the pages, so updates show on the next reload
 /
   Cache-Control: no-cache
 /index.html
   Cache-Control: no-cache
-/manifest.webmanifest
+/app/
+  Cache-Control: no-cache
+/app/index.html
+  Cache-Control: no-cache
+/app/manifest.webmanifest
   Cache-Control: no-cache

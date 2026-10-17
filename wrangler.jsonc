@@ -1,10 +1,17 @@
 {
-  // Cloudflare settings: the app is a plain static site in ./public, no build step.
+  // Cloudflare settings: a static site in ./public, with a small worker (src/worker.js) for the waitlist.
   "name": "pattern-projector",
+  "main": "src/worker.js",
   "compatibility_date": "2026-10-01",
   "assets": {
-    "directory": "./public"
+    "directory": "./public",
+    "binding": "ASSETS",
+    "run_worker_first": ["/api/*"]
   },
+  // waitlist sign-ups (KV namespace "notch-waitlist")
+  "kv_namespaces": [
+    { "binding": "WAITLIST", "id": "2dc960da2fcf4356ad01b150dcf01242" }
+  ],
   // the app's own address (goodmorningpins.com is registered in the same Cloudflare account)
   "routes": [
     { "pattern": "notch.goodmorningpins.com", "custom_domain": true }
