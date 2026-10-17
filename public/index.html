@@ -168,6 +168,12 @@ input.serif { font-family: var(--serif); font-style: italic; font-size: 18px; }
 #newAsk .btn.danger { border-color: var(--danger); }
 .srow .slot { font-size: 9px; letter-spacing: .16em; text-transform: uppercase; color: var(--faint); }
 .srow.cur .slot { color: var(--brass); }
+#winAsk { position: fixed; inset: 0; z-index: 70; background: rgba(0,0,0,.55); display: flex; align-items: center; justify-content: center; padding: 16px; }
+#winAsk .card { width: min(400px, 100%); background: var(--panel); border: 1px solid var(--brass); box-shadow: 0 20px 60px rgba(0,0,0,.7); padding: 22px 22px 20px; display: flex; flex-direction: column; gap: 12px; }
+#winAsk h2 { margin: 0; font-family: var(--serif); font-weight: 400; font-size: 32px; line-height: 1.05; }
+#winAsk h2 i { font-style: italic; }
+#winIgnore { border-color: var(--danger); color: var(--danger); }
+#winIgnore[data-armed] { background: rgba(255,107,94,.12); }
 #pwAsk { position: fixed; inset: 0; z-index: 40; background: rgba(0,0,0,.6); display: flex; align-items: center; justify-content: center; padding: 16px; }
 #pwAsk .card { width: min(380px, 100%); background: var(--panel); border: 1px solid var(--line); box-shadow: 0 20px 60px rgba(0,0,0,.6); padding: 22px 22px 20px; display: flex; flex-direction: column; gap: 12px; }
 #pwAsk h2 { margin: 0; font-family: var(--serif); font-weight: 400; font-size: 30px; line-height: 1.05; }
@@ -916,6 +922,15 @@ body.bare #gridPop { display: none !important; }
     <p class="note" id="newAskNote">Your current project will be gone from this device, with its marked pieces, lines and cut ticks.</p>
     <button class="btn danger" id="newAskGo">Start new project · choose PDF</button>
     <button class="btn" id="newAskCancel">Cancel · keep this project</button>
+  </div>
+</div>
+<div id="winAsk" hidden role="alertdialog" aria-modal="true" aria-labelledby="winAskT">
+  <div class="card">
+    <span class="eyebrow">Window size changed</span>
+    <h2 id="winAskT">Check your <i>calibration</i></h2>
+    <p class="note">The screen changed size, so the grid may no longer match your mat and the pattern may not be true size.</p>
+    <button class="btn primary" id="winRecal">Recalibrate corners</button>
+    <button class="btn danger" id="winIgnore">Ignore</button>
   </div>
 </div>
 <div id="pwAsk" hidden role="dialog" aria-modal="true" aria-labelledby="pwAskT">
@@ -6156,13 +6171,8 @@ body.bare #gridPop { display: none !important; }
       if (!dw && !dh) return;
       const big = dw > Math.max(60, S.winW * 0.06) || dh > Math.max(60, S.winH * 0.06);
       if (!big) { applyTransform(); return; }   // keep S.winW/H as the reference, so tiny wobbles can't add up unnoticed
-      if (S.corners) {
-        // For now (inside the claude.ai window) a real window change does what Reset corners does: the grid
-        // refits the new window, squares stay square. Revisit for the real web app (calibration at true size).
-        S.corners = defaultCorners();
-        clearTimeout(S.resizeNote);
-        S.resizeNote = setTimeout(() => toast('Window size changed · corners reset to fit · check your calibration'), 100);
-      }
+      // v135: a real window change no longer resets the corners by itself; a card asks: recalibrate, or ignore
+      if (S.corners) showWinAsk();
       S.winW = w; S.winH = h;
       S.view = { s: 1, tx: 0, ty: 0 }; $('#unzoom').hidden = true;
       applyTransform();
@@ -6170,6 +6180,22 @@ body.bare #gridPop { display: none !important; }
     }, 350);
   });
 
+  function showWinAsk() {
+    const c = $('#winAsk'); if (!c.hidden) return;
+    const ig = $('#winIgnore'); delete ig.dataset.armed; ig.textContent = 'Ignore';
+    c.hidden = false; $('#winRecal').focus();
+  }
+  $('#winRecal').addEventListener('click', () => {
+    $('#winAsk').hidden = true;
+    S.corners = defaultCorners(); S.sel = 0;
+    go('corners'); applyTransform();
+    toast('Corners reset to fit the new window · match them to your mat');
+  });
+  { let t = null; const ig = $('#winIgnore');
+    ig.addEventListener('click', () => {
+      if (!ig.dataset.armed) { ig.dataset.armed = '1'; ig.textContent = 'Tap again · the pattern might not be true size'; clearTimeout(t); t = setTimeout(() => { delete ig.dataset.armed; ig.textContent = 'Ignore'; }, 4000); return; }
+      clearTimeout(t); delete ig.dataset.armed; $('#winAsk').hidden = true; toast('Kept the old calibration · check a ruler on the mat if unsure');
+    }); }
   let toastTimer;
   // prototype helper: any error shows on screen (with where it happened) so it can be reported
   window.addEventListener('error', e => { try { toast('Error: ' + e.message + (e.lineno ? ' (line ' + e.lineno + ')' : '')); } catch {} });
