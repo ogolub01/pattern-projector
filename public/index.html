@@ -669,6 +669,7 @@ body.bare #gridPop { display: none !important; }
       <div class="body">
         <p class="note" id="patNote">Every PDF you open is kept on this device with its page layout, pieces, cut ticks and lines, and reopens where you left off.</p>
         <div id="patList" class="group" style="gap:6px"></div>
+        <div class="group" id="patTools" hidden><button class="btn danger slim" id="clearPatterns" title="Removes every saved pattern from this device">✕ Clear</button></div>
       </div>
     </details>
 
@@ -3272,7 +3273,8 @@ body.bare #gridPop { display: none !important; }
       get: (st, k) => run(st, 'readonly', s => s.get(k)),
       put: (st, k, v) => run(st, 'readwrite', s => s.put(v, k)),
       del: (st, k) => run(st, 'readwrite', s => s.delete(k)),
-      all: st => run(st, 'readonly', s => s.getAll())
+      all: st => run(st, 'readonly', s => s.getAll()),
+      clear: st => run(st, 'readwrite', s => s.clear())
     };
   })();
   const SAVE = { id: null, meta: null, lastSig: '', timer: null, ready: false, failed: false, asked: false };
@@ -3346,6 +3348,7 @@ body.bare #gridPop { display: none !important; }
       row.append(sn, more); box.append(row);
     });
     $('#patNote').hidden = list.length > 0;
+    $('#patTools').hidden = list.length === 0;
   }
   function savedMenu(r, x, y) {
     const cur = r.id === SAVE.id, owner = 'saved:' + r.id;
@@ -5866,6 +5869,13 @@ body.bare #gridPop { display: none !important; }
       fn();
     });
   }
+  // Clear: removes every saved pattern (PDFs and their work) from this device; the one on screen stays open but stops saving
+  twoTap($('#clearPatterns'), 'Clear', async () => {
+    try { await DB.clear('work'); await DB.clear('files'); } catch { toast('Could not clear the saved patterns'); return; }
+    clearTimeout(SAVE.timer); SAVE.id = null; SAVE.ready = false; SAVE.lastSig = ''; pset('pp_last', '');
+    renderPatternList();
+    toast(S.pdf ? 'Saved patterns cleared · the one on screen won\'t be kept unless you open it again' : 'Saved patterns cleared');
+  }, '✕', () => 'Tap again · clear all saved patterns');
   twoTap($('#resetPattern'), 'Reset pattern', () => {
     S.rot = 0; S.flip = false; S.pivotWhole = null; S.flipWhole = null; S.matSel = null;
     S.lines = []; S.selId = null; S.foldId = null; updateMirror();
