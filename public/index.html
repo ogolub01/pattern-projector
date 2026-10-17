@@ -96,7 +96,9 @@ button:disabled { opacity: .5; cursor: wait; }
 footer .foot { border-top: 1px solid var(--ink); padding: 18px 0 calc(28px + env(safe-area-inset-bottom, 0px)); font-family: var(--mono); font-size: 13px; color: var(--graphite); display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
 
 @media (max-width: 860px) {
-  .feat h3 { font-variation-settings: 'opsz' 14; }   /* Bodoni headings at small size: sturdier cut */
+  /* Bodoni headings on phones and tablets: a sturdier cut and medium weight, so the hairlines hold */
+  .intro h2, .feats h2, .list h2 { font-variation-settings: 'opsz' 20; font-weight: 500; }
+  .feat h3 { font-variation-settings: 'opsz' 14; font-weight: 500; }
   .deck, .intro, .list .box { grid-template-columns: 1fr; }
   .deck .cta { justify-self: start; text-align: left; }
   .featgrid { grid-template-columns: 1fr 1fr; }
