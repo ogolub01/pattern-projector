@@ -27,7 +27,7 @@
 }
 * { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; }
-body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(--serif); font-size: 19px; line-height: 1.62; }
+body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(--serif); font-size: 19px; line-height: 1.62; font-variant-ligatures: no-common-ligatures; font-feature-settings: 'liga' 0, 'clig' 0; }
 a { color: inherit; }
 :focus-visible { outline: 2px solid var(--brass); outline-offset: 3px; }
 .wrap { max-width: 1180px; margin: 0 auto; padding: 0 clamp(16px, 4vw, 48px); }
@@ -38,7 +38,7 @@ a { color: inherit; }
 .mastbar .own { display: none; color: var(--brass); text-decoration: none; }
 .mastbar .own.on { display: inline; }
 .mastbar .own:hover { text-decoration: underline; }
-h1 { margin: 0; font-weight: 400; font-style: italic; font-size: clamp(120px, 27vw, 330px); line-height: .82; letter-spacing: -.035em; padding: clamp(10px, 2vw, 22px) 0 0; margin-left: -.04em; }
+h1 { margin: 0; font-weight: 400; font-style: italic; font-size: clamp(120px, 27vw, 330px); line-height: .82; letter-spacing: -.035em; padding: clamp(10px, 2vw, 22px) 0 0; margin-left: .04em; }   /* the italic N's foot reaches .04em left of its origin; this lines its ink up with the column */
 .deck { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); gap: clamp(20px, 4vw, 64px); align-items: end; border-top: 1px solid var(--hair); margin-top: clamp(14px, 2vw, 24px); padding-top: 18px; }
 .deck p { margin: 0; font-size: clamp(20px, 2.1vw, 26px); line-height: 1.38; max-width: 30ch; }
 .deck .cta { justify-self: end; text-align: right; font-family: var(--mono); font-size: 13px; color: var(--graphite); }
@@ -60,7 +60,8 @@ section.wrap { padding-top: clamp(56px, 8vw, 104px); }
 .intro { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: clamp(20px, 4vw, 64px); }
 .intro h2, .list h2 { margin: 0; font-weight: 400; font-size: clamp(30px, 3.4vw, 44px); line-height: 1.08; }
 .intro .copy p { margin: 0 0 1em; max-width: 62ch; }
-.intro .copy p:first-child::first-letter { -webkit-initial-letter: 3; initial-letter: 3; font-style: italic; margin-right: .12em; color: var(--ink); }
+/* drop cap set by hand: Bodoni Moda's cap height is .75em, so 5.32em spans cap line 1 to baseline 3 at line-height 1.62 */
+.intro .copy p:first-child::first-letter { float: left; font-size: 5.32em; line-height: 1.53; margin: -.3em .09em -.36em -.01em; font-style: normal; font-weight: 400; font-variation-settings: 'opsz' 28; color: var(--ink); }
 
 /* features: six small projector scenes, each looping while it's on screen */
 .feats h2 { margin: 0; font-weight: 400; font-size: clamp(30px, 3.4vw, 44px); line-height: 1.08; }
@@ -68,7 +69,7 @@ section.wrap { padding-top: clamp(56px, 8vw, 104px); }
 .feat figure { margin: 0; background: var(--studio); aspect-ratio: 4 / 3; }
 .feat svg { display: block; width: 100%; height: 100%; }
 .feat h3 { margin: 16px 0 6px; font-weight: 500; font-size: 22px; line-height: 1.2; }
-.feat p { margin: 0; font-size: 16.5px; line-height: 1.6; color: var(--graphite); max-width: 46ch; }
+.feat p { margin: 0; font-size: 17px; line-height: 1.6; color: #45423C; max-width: 46ch; }
 /* waitlist */
 .list { padding-bottom: clamp(56px, 9vw, 120px); }
 .list .box { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: clamp(20px, 4vw, 64px); border-top: 1px solid var(--ink); padding-top: 24px; align-items: start; }
@@ -99,6 +100,7 @@ footer .foot { border-top: 1px solid var(--ink); padding: 18px 0 calc(28px + env
 }
 @media (max-width: 480px) {
   body { font-size: 18px; }
+  h1 { font-variation-settings: 'opsz' 40; }   /* at phone size the display cut's hairlines would all but vanish */
   .featgrid { grid-template-columns: 1fr; }
   .field { flex-direction: column; border-bottom: 0; gap: 12px; }
   .field input[type=email] { border-bottom: 1px solid var(--ink); }
