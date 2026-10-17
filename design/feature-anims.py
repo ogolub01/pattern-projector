@@ -179,7 +179,7 @@ FEATS = [
     ('Watch the cut pieces fade', dim,
      'Tick a piece off once it’s cut and it dims on the mat, so the pieces still waiting stand out clearly and nothing gets cut twice or quietly forgotten.'),
     ('Move one piece on its own', single,
-     'Pick out a single piece and the rest step aside, so you can slide and turn just that one into place on the fabric, along the grain or around a flaw, while the others wait their turn.'),
+     'Pick out a single piece and the rest step aside, so you can slide and turn just that one into place on the fabric while the others wait their turn.'),
     ('Mirror the centre front', mirror,
      'For a piece that’s cut on the fold, draw along the centre front and Notch mirrors the other half across it, so you see the whole front flat on the fabric, ready for single-layer cutting or a print you want to place.'),
     ('Go quiet to see the fabric', quiet,
