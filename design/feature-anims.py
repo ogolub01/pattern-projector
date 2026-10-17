@@ -173,9 +173,9 @@ def quiet():
 
 FEATS = [
     ('Line it up with your mat', calibrate,
-     'If you’ve ever projected a sewing pattern, you’ll know calibration is essential. Drag the four corners onto your mat and you’re done. Pretty self-explanatory, really.'),
+     'If you’ve ever used a pattern projector, you already know this one, so I won’t bore you: calibration is essential, and of course it’s here.'),
     ('Tap to mark a piece', fill,
-     'I always found all those lines on my cutting table a bit overwhelming, and wanted a way to hide the pieces I’m not using. Tap inside a piece to mark it, and only show what you need.'),
+     'I always found all those lines on my cutting table a bit overwhelming, and wanted a way to hide the pieces I’m not using. Tap inside a piece to mark it, and only show what you need. Or keep the whole PDF on the mat if you’d rather, that’s up to you.'),
     ('Cut pieces fade away', dim,
      'Tick a piece off once it’s cut and it goes dim. It’s just a nice way to keep track of what you’ve done so far, especially on a bigger project. Nothing gets cut twice, or forgotten (which is more my style).'),
     ('Move one piece at a time', single,
