@@ -173,17 +173,17 @@ def quiet():
 
 FEATS = [
     ('Line it up with your mat', calibrate,
-     'Drag the four corners of the grid onto the corners of your mat and that’s it. Ten centimetres on the pattern is ten centimetres on the mat, even if your projector sits a bit wonky. It remembers, so next time you can get straight to sewing.'),
+     'If you’ve ever projected a sewing pattern, you’ll know calibration is essential. Drag the four corners onto your mat and you’re done. Pretty self-explanatory, really.'),
     ('Tap to mark a piece', fill,
-     'Tap inside a pattern piece and it fills right up to the cutting line, notches and all, without spilling into the piece next door. Give it a name and it’s saved with your pattern.'),
+     'I always found all those lines on my cutting table a bit overwhelming, and wanted a way to hide the pieces I’m not using. Tap inside a piece to mark it, and only show what you need.'),
     ('Cut pieces fade away', dim,
-     'Tick a piece off once it’s cut and it goes dim, so you can see what’s left. Nothing gets cut twice, or forgotten (which is more my style).'),
+     'Tick a piece off once it’s cut and it goes dim. It’s just a nice way to keep track of what you’ve done so far, especially on a bigger project. Nothing gets cut twice, or forgotten (which is more my style).'),
     ('Move one piece at a time', single,
-     'Pick a piece and the rest step aside, so you can shuffle just that one around your fabric until it fits.'),
+     'Pick a piece and the rest step aside, so you can move just that one around your fabric. It turns freely too, not just in 90° steps. If my fabric has shifted a little on the mat, I’d rather turn one piece by 2 degrees to match the grain than shuffle the whole fabric back into place.'),
     ('Open out the fold', mirror,
-     'For a piece cut on the fold, draw along the fold line and Notch mirrors the other half, so you see the whole piece. Handy for cutting on a single layer, or placing a print just where you want it.'),
+     'For a piece cut on the fold, draw along the fold line and Notch mirrors the other half, so you see the whole piece. The fold line snaps onto the actual line of the pattern, so it’s spot on. Handy for cutting on a single layer, or placing a print just where you want it.'),
     ('Hide it for a moment', quiet,
-     'One tap and the pattern fades away, so you can see the actual fabric, check a chalk mark or how a print falls. Tap again and it’s back.'),
+     'One tap and the pattern fades away. I wished for this for ages, and used to keep a black screen open in another window just so I could switch to it. Now you can see your fabric while you cut, or check you’ve drawn every line and marked every notch. Very simple, but one of my favourites.'),
 ]
 
 print('<section class="wrap feats" aria-labelledby="featsT">')
