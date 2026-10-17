@@ -173,7 +173,7 @@ def quiet():
 
 FEATS = [
     ('Line it up with your mat', calibrate,
-     'If you’ve ever used a pattern projector, you already know this one, so I won’t bore you: calibration is essential, and of course it’s here.'),
+     'If you’ve ever projected a sewing pattern, you already know this one, so I won’t bore you: calibration is essential, and of course it’s here.'),
     ('Tap to mark a piece', fill,
      'I always found all those lines on my cutting table a bit overwhelming, and wanted a way to hide the pieces I’m not using. Tap inside a piece to mark it, and only show what you need. Or keep the whole PDF on the mat if you’d rather, that’s up to you.'),
     ('Cut pieces fade away', dim,
