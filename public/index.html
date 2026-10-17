@@ -96,6 +96,8 @@ button:disabled { opacity: .5; cursor: wait; }
 .msg.ok { color: var(--brass); }
 .msg.err { color: #A3352B; }
 
+footer .ig { display: inline-flex; align-items: center; gap: 8px; color: var(--brass); text-decoration: none; }
+footer .ig:hover { text-decoration: underline; text-underline-offset: 3px; }
 footer .foot { border-top: 1px solid var(--ink); padding: 18px 0 calc(28px + env(safe-area-inset-bottom, 0px)); font-family: var(--mono); font-size: 13px; color: var(--graphite); display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
 
 @media (max-width: 860px) {
@@ -202,7 +204,7 @@ footer .foot { border-top: 1px solid var(--ink); padding: 18px 0 calc(28px + env
 </main>
 
 <footer class="wrap">
-  <div class="foot"><span>Notch · Good Morning Pins</span></div>
+  <div class="foot"><span>Notch · Good Morning Pins</span><a class="ig" href="https://www.instagram.com/good_morning_pins/" target="_blank" rel="noopener"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3.5" y="3.5" width="17" height="17" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.2" cy="6.8" r=".6" fill="currentColor" stroke="none"/></svg>@good_morning_pins</a></div>
 </footer>
 
 <script>
