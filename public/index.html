@@ -40,6 +40,9 @@ a { color: inherit; }
 .mastbar .own.on { display: inline; }
 .mastbar .own:hover { text-decoration: underline; }
 h1, h2, h3, input[type=email] { font-family: var(--serif); }
+/* section headings and feature titles: Bodoni's sturdier text cut in medium weight on every screen, so the hairlines hold */
+h2 { font-variation-settings: 'opsz' 22; font-weight: 500; }
+h3 { font-variation-settings: 'opsz' 16; font-weight: 500; }
 h1 { margin: 0; font-weight: 400; font-style: italic; font-size: clamp(120px, 27vw, 330px); line-height: .82; letter-spacing: -.035em; padding: clamp(10px, 2vw, 22px) 0 0; margin-left: .04em; }   /* the italic N's foot reaches .04em left of its origin; this lines its ink up with the column */
 .deck { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); gap: clamp(20px, 4vw, 64px); align-items: end; border-top: 1px solid var(--hair); margin-top: clamp(14px, 2vw, 24px); padding-top: 18px; }
 .deck p { margin: 0; font-size: clamp(20px, 2.1vw, 26px); line-height: 1.38; max-width: 30ch; }
@@ -60,18 +63,18 @@ h1 { margin: 0; font-weight: 400; font-style: italic; font-size: clamp(120px, 27
 /* body copy */
 section.wrap { padding-top: clamp(56px, 8vw, 104px); }
 .intro { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: clamp(20px, 4vw, 64px); }
-.intro h2, .list h2 { margin: 0; font-weight: 400; font-size: clamp(30px, 3.4vw, 44px); line-height: 1.08; }
+.intro h2, .list h2 { margin: 0; font-size: clamp(30px, 3.4vw, 44px); line-height: 1.08; }
 .intro .copy p { margin: 0 0 1em; max-width: 62ch; }
 /* drop cap set by hand: a Bodoni N (cap height .75em) spanning from the cap line of line 1 to the baseline of line 3
    of Newsreader text at line-height 1.62 (Newsreader ascent .89, descent .22, cap height .66) */
 .intro .copy p:first-child::first-letter { float: left; font-family: var(--serif); font-size: 5.2em; line-height: 1.53; margin: -.287em .09em -.33em -.01em; font-style: normal; font-weight: 400; font-variation-settings: 'opsz' 28; color: var(--ink); }
 
 /* features: six small projector scenes, each looping while it's on screen */
-.feats h2 { margin: 0; font-weight: 400; font-size: clamp(30px, 3.4vw, 44px); line-height: 1.08; }
+.feats h2 { margin: 0; font-size: clamp(30px, 3.4vw, 44px); line-height: 1.08; }
 .featgrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: clamp(28px, 3.5vw, 48px) clamp(18px, 2.4vw, 32px); margin-top: 28px; border-top: 1px solid var(--ink); padding-top: 28px; }
 .feat figure { margin: 0; background: var(--studio); aspect-ratio: 4 / 3; }
 .feat svg { display: block; width: 100%; height: 100%; }
-.feat h3 { margin: 16px 0 6px; font-weight: 500; font-size: 22px; line-height: 1.2; }
+.feat h3 { margin: 16px 0 6px; font-size: 22px; line-height: 1.2; }
 .feat p { margin: 0; font-size: 17px; line-height: 1.6; color: #3A3833; max-width: 46ch; }
 /* waitlist */
 .list { padding-bottom: clamp(56px, 9vw, 120px); }
@@ -96,9 +99,6 @@ button:disabled { opacity: .5; cursor: wait; }
 footer .foot { border-top: 1px solid var(--ink); padding: 18px 0 calc(28px + env(safe-area-inset-bottom, 0px)); font-family: var(--mono); font-size: 13px; color: var(--graphite); display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
 
 @media (max-width: 860px) {
-  /* Bodoni headings on phones and tablets: a sturdier cut and medium weight, so the hairlines hold */
-  .intro h2, .feats h2, .list h2 { font-variation-settings: 'opsz' 20; font-weight: 500; }
-  .feat h3 { font-variation-settings: 'opsz' 14; font-weight: 500; }
   .deck, .intro, .list .box { grid-template-columns: 1fr; }
   .deck .cta { justify-self: start; text-align: left; }
   .featgrid { grid-template-columns: 1fr 1fr; }
