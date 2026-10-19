@@ -481,6 +481,18 @@ body.bare #gridPop, body.bare #biasPop { display: none !important; }
 #biasPop .seg .btn svg { display: block; }
 #biasPop .ib.lsbtn { width: 44px; height: 30px; border: 1px solid var(--line); background: transparent; color: var(--ink); cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
 #bwPop[hidden] { display: none; }
+#shapePop { position: fixed; z-index: 6; left: 50%; top: calc(56px + env(safe-area-inset-top, 0px)); transform: translateX(-50%); width: max-content; max-width: calc(100% - 32px); display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 10px; padding: 7px 12px; background: var(--panel); border: 1px solid var(--line); box-shadow: 0 10px 40px rgba(0,0,0,.45); }
+#shapePop[hidden] { display: none !important; }
+#shapePop .gbLabel { font-size: 9.5px; letter-spacing: .16em; text-transform: uppercase; color: var(--brass); }
+#shapePop .seg .btn, #shapePop > .btn { height: 30px; padding: 0 9px; font-size: 10px; flex: none; }
+#shapePop .shpRect, #shapePop .shpCirc { display: flex; align-items: center; gap: 8px; }
+#shapePop[data-kind="rect"] .shpCirc, #shapePop[data-kind="circle"] .shpRect { display: none; }
+#shapePop .shpF { display: flex; align-items: center; gap: 6px; font-size: 9.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--mute); }
+#shapePop .shpX { color: var(--mute); font-size: 12px; }
+#shapePop input { width: 72px; height: 30px; box-sizing: border-box; background: transparent; border: 1px solid var(--line); color: var(--ink); font: 16px "IBM Plex Mono", monospace; text-align: right; padding: 0 6px; -moz-appearance: textfield; }
+#shapePop input:focus { border-color: var(--brass); outline: none; }
+#shapePop input::-webkit-inner-spin-button, #shapePop input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+body.bare #shapePop, body.phone #shapePop { display: none !important; }
 #biasCustomBox { display: none; align-items: center; gap: 4px; font-size: 9.5px; letter-spacing: .12em; color: var(--mute); }
 #biasCustomBox.on { display: flex; }
 #biasCustom { width: 72px; -moz-appearance: textfield; height: 30px; box-sizing: border-box; background: transparent; border: 1px solid var(--brass); color: var(--ink); font: 12px "IBM Plex Mono", monospace; text-align: right; padding: 0 6px; font-size: 16px; }
@@ -820,6 +832,8 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
   <span class="tsep"></span>
   <button class="tool" data-t="line" title="Straight line (L)" aria-label="Straight line"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M5 19L19 5"/><circle cx="5" cy="19" r="1.8" fill="currentColor"/><circle cx="19" cy="5" r="1.8" fill="currentColor"/></svg></button>
   <button class="tool" data-t="free" title="Freehand (P)" aria-label="Freehand"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 17c3-6 5 2 8-4s5-5 7-1 3 3 3 3"/></svg></button>
+  <button class="tool" data-t="rect" title="Rectangle (M)" aria-label="Rectangle"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="4" y="6.5" width="16" height="11"/></svg></button>
+  <button class="tool" data-t="circle" title="Circle (C)" aria-label="Circle"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="7.5"/><path d="M12 12h7.5" stroke-width="1" stroke-dasharray="1.6 1.6"/><circle cx="12" cy="12" r="0.9" fill="currentColor" stroke="none"/></svg></button>
   <button class="tool" id="tbRuler" hidden aria-pressed="false" title="Ruler: draw a measured line · hold: straight or freehand, cm or inches" aria-label="Ruler (hold for options)" aria-haspopup="menu"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M3 16L16 3l5 5L8 21z"/><path d="M7 12l2 2M10 9l2 2M13 6l2 2"/></svg></button>
   <button class="tool on" id="tbSnap" aria-pressed="true" title="Snap to pattern lines and corners (N)" aria-label="Snap to pattern"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 3v9a6 6 0 0 0 12 0V3h-4v9a2 2 0 0 1-4 0V3z"/><path d="M6 7h4M14 7h4"/></svg></button>
   <button class="tool" id="tbGrid" aria-pressed="false" title="Show or hide the grid (G)" aria-label="Grid"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="4" y="4" width="16" height="16"/><path d="M9.3 4v16M14.7 4v16M4 9.3h16M4 14.7h16"/></svg></button>
@@ -918,6 +932,20 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
   <button class="ib lsbtn" id="biasWeight" aria-haspopup="true" title="Line thickness: thin, medium or thick" aria-label="Line thickness"></button>
   <span class="vsep"></span>
   <div class="bpal" id="biasPal" role="group" aria-label="Strip line colour"></div>
+</div>
+
+<div id="shapePop" hidden role="toolbar" aria-label="Shape size">
+  <span class="gbLabel" id="shpTitle">Rectangle</span>
+  <span class="shpRect"><label class="shpF"><span>W</span><input type="number" id="shpW" step="any" inputmode="decimal" aria-label="Width"></label><span class="shpX">×</span><label class="shpF"><span>H</span><input type="number" id="shpH" step="any" inputmode="decimal" aria-label="Height"></label></span>
+  <span class="shpCirc"><label class="shpF"><span>Radius</span><input type="number" id="shpR" step="any" inputmode="decimal" aria-label="Radius"></label><label class="shpF"><span>Circumference</span><input type="number" id="shpC" step="any" inputmode="decimal" aria-label="Circumference"></label></span>
+  <span class="vsep"></span>
+  <div class="seg" id="shpUnits" role="group" aria-label="Units">
+    <button class="btn" data-bu="mm">MM</button>
+    <button class="btn" data-bu="cm">CM</button>
+    <button class="btn" data-bu="in">IN</button>
+  </div>
+  <span class="vsep" id="shpPlaceSep"></span>
+  <button class="btn" id="shpPlace" title="Put this shape in the middle of the mat">Place</button>
 </div>
 
 <div id="lineBar" hidden role="toolbar" aria-label="Line colour and style">
@@ -1734,7 +1762,7 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
     if (pen) $('#lineBarName').textContent = ''; else if (l.group) $('#lineBarName').innerHTML = 'Group ' + groupNo(l.group) + ' <small>· ' + selMembers().length + '</small>'; else $('#lineBarName').textContent = l.name;
     if (l) { const lb = $('#lineBarLabel'), on = !l.noLabel; lb.classList.toggle('on', on); lb.setAttribute('aria-pressed', String(on)); }
     { const on = l ? !!(l.ruler ?? S.ruler) : !!(S.penRuler || S.ruler), rb = $('#lineBarRuler'); rb.classList.toggle('on', on); rb.setAttribute('aria-pressed', String(on)); }
-    { const free = pen ? S.pen === 'free' : (l && l.type !== 'straight');
+    { const free = pen ? S.pen !== 'straight' : (l && l.type !== 'straight');
       ['#lbPar', '#lbSq', '#lbGrain', '#lbFold', '#lbFlipAcross'].forEach(q => $(q).classList.toggle('lbFreeHide', !!free));
       const nm = $('#lbNewMark'); nm.hidden = !pen || S.pen !== 'free'; nm.disabled = !S.markSess; }
     { const ref = refLine(), drawing = S.tool === 'line';
@@ -1780,8 +1808,8 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
   }
   function addLine(l) {
     lineSeq++;
-    l.id = 'l' + lineSeq; l.name = (l.type === 'free' ? 'Mark ' : 'Line ') + lineSeq;
-    if (l.type === 'free') {
+    l.id = 'l' + lineSeq; l.name = l.shape ? (l.shape.kind === 'rect' ? 'Rectangle ' : 'Circle ') + lineSeq : (l.type === 'free' ? 'Mark ' : 'Line ') + lineSeq;
+    if (l.type === 'free' && !l.shape) {
       if (!S.markSess) { markSeq = Math.max(markSeq, ...S.lines.filter(isMarkStroke).map(x => +String(x.group).replace(/^mk/, '') || 0)) + 1; S.markSess = { group: 'mk' + markSeq, name: 'Mark ' + markSeq }; }
       l.group = S.markSess.group; l.name = S.markSess.name; l.mark = true;
     }
@@ -4483,6 +4511,33 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
         abort: () => { S.pieceDraft = null; drawPieces(); }
       };
     }
+    if (S.pen === 'rect' || S.pen === 'circle') {
+      const kind = S.pen, a0 = snapped(p0, e);
+      S.draft = { type: 'free', shape: { kind }, pts: [a0] };
+      let moved = false;
+      return {
+        move: ev => {
+          const b = snapped(toMm(ev.clientX, ev.clientY), ev);
+          if (Math.hypot(b[0] - a0[0], b[1] - a0[1]) > 2) moved = true;
+          if (kind === 'circle') { const r = Math.hypot(b[0] - a0[0], b[1] - a0[1]); S.draft.shape.r = r; S.draft.pts = circlePts(a0, r); }
+          else {
+            let dx = b[0] - a0[0], dy = b[1] - a0[1];
+            if (ev.shiftKey) { const m = Math.max(Math.abs(dx), Math.abs(dy)); dx = Math.sign(dx || 1) * m; dy = Math.sign(dy || 1) * m; }
+            S.draft.shape.w = Math.abs(dx); S.draft.shape.h = Math.abs(dy);
+            S.draft.pts = rectPts([a0[0] + dx / 2, a0[1] + dy / 2], Math.abs(dx), Math.abs(dy), 0);
+          }
+          drawLines(); syncShapeBar();
+        },
+        up: () => {
+          const l = S.draft; S.draft = null; S.snapHint = null;
+          const ok = kind === 'circle' ? l.shape.r > 3 : l.shape.w > 3 && l.shape.h > 3;
+          if (moved && ok) { addLine(l); record(); }
+          else if (!moved && S.selId) { S.selId = null; renderLineList(); }
+          drawLines(); syncLineBar(); syncShapeBar();
+        },
+        abort: () => { S.draft = null; S.snapHint = null; drawLines(); syncShapeBar(); }
+      };
+    }
     if (S.pen === 'free') {
       S.draft = { type: 'free', pts: [p0] };
       return {
@@ -5086,13 +5141,15 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
     move: 'Move · drag the pattern, or grab a line or its end to adjust it',
     line: 'Straight line · drag on the mat; grab an end of a line to adjust it',
     free: 'Freehand · draw with a finger, mouse or Apple Pencil',
+    rect: 'Rectangle · drag corner to corner, or type the size in the bar at the top',
+    circle: 'Circle · drag out from the centre, or type the radius or circumference at the top',
     align: 'Straighten piece · tap two points along the printed grainline',
     piece: 'Mark a piece · drag a box around it',
     pfree: 'Trace a piece · draw round its outline',
     pfill: 'Fill · tap inside each part of the piece, then ✓ to make it'
   };
   // toolbox buttons map onto the internal tool + pen/shape
-  function toolKey() { return S.tool === 'line' ? (S.rulerPen ? 'ruler' : S.pen === 'free' ? 'free' : 'line') : S.tool === 'piece' ? (S.pieceShape === 'free' ? 'pfree' : S.pieceShape === 'fill' ? 'pfill' : 'piece') : S.tool; }
+  function toolKey() { return S.tool === 'line' ? (S.rulerPen ? 'ruler' : S.pen === 'free' ? 'free' : S.pen === 'rect' ? 'rect' : S.pen === 'circle' ? 'circle' : 'line') : S.tool === 'piece' ? (S.pieceShape === 'free' ? 'pfree' : S.pieceShape === 'fill' ? 'pfill' : 'piece') : S.tool; }
   function drawRelative(l, mode) {
     S.selId = l.id; S.lmode = mode; S.pen = 'straight';
     renderLineList(); setTool('line');
@@ -5104,7 +5161,8 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
     // Move lights up (with its arrows) only when you choose it; going back to it on its own leaves it unlit
     if (key === 'move') S.moveOn = !quiet;
     if (key === 'line') S.lmode = 'free';
-    if (key === 'line' || key === 'free') { S.pen = key === 'free' ? 'free' : 'straight'; setTool('line'); }
+    if (key === 'rect' || key === 'circle') { const sl = selLine(); if (sl && sl.shape && sl.shape.kind !== key) { S.selId = null; renderLineList(); } }
+    if (key === 'line' || key === 'free' || key === 'rect' || key === 'circle') { S.pen = key === 'line' ? 'straight' : key; setTool('line'); }
     else if (key === 'piece' || key === 'pfree' || key === 'pfill') { S.pieceShape = key === 'pfree' ? 'free' : key === 'pfill' ? 'fill' : 'rect'; setTool('piece'); }
     else setTool(key);
     if (!quiet && key !== 'move') toast(TOOL_HINT[key]);
@@ -5122,7 +5180,7 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
     stage.classList.remove('t-move', 't-line', 't-align', 't-piece');
     if (S.step === 'project') stage.classList.add('t-' + t);
     syncFill();
-    drawLines(); drawPieces();
+    drawLines(); drawPieces(); syncShapeBar(); if (typeof syncLineBar === 'function') syncLineBar();
   }
   const toolbox = $('#toolbox');
   function placeToolbox(reset) {
@@ -5809,7 +5867,7 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
   $('#layersNone').addEventListener('click', () => setLayers(() => false));
   function setGrid(on) { S.grid = on; $('#gridChk').checked = on; syncGridBtn(); drawGrid(); record(); placeGridBar(); }
   // grid options sit in a bar at the top while the grid is on (under the line bar when both are showing)
-  function placeGridBar() { placeGridBar0(); placeBiasBar(); }
+  function placeGridBar() { placeGridBar0(); placeBiasBar(); if (typeof syncShapeBar === 'function') syncShapeBar(); }
   function placeGridBar0() {
     const gb = document.getElementById('gridPop'); if (!gb) return;
     gb.hidden = !(S.step === 'project' && S.grid);
@@ -5946,6 +6004,91 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
   }
   holdable($('#tbBias'), () => { setBias({ on: !B.on }); toast(B.on ? 'Bias strips on · width, direction and colour are in the bar at the top' : 'Bias strips off'); }, () => { if (!B.on) setBias({ on: true }); });
   syncBias();
+
+  /* ---------- rectangles and circles: closed lines with a size you can type ---------- */
+  var shapesReady = false;
+  function rectPts(c, w, h, ang) {
+    const a = rad(ang || 0), ca = Math.cos(a), sa = Math.sin(a), hw = w / 2, hh = h / 2;
+    return [[-hw, -hh], [hw, -hh], [hw, hh], [-hw, hh], [-hw, -hh]].map(([x, y]) => [c[0] + x * ca - y * sa, c[1] + x * sa + y * ca]);
+  }
+  function circlePts(c, r) {
+    const n = Math.max(48, Math.min(240, Math.round(r * 1.5))), out = [];
+    for (let k = 0; k <= n; k++) { const t = k / n * Math.PI * 2; out.push([c[0] + r * Math.cos(t), c[1] + r * Math.sin(t)]); }
+    return out;
+  }
+  // where the shape sits now (it may have been moved, turned or pinned to the pattern)
+  function shapeFrame(l) {
+    const P0 = l.pts, n = P0.length - 1;
+    let cx = 0, cy = 0; for (let k = 0; k < n; k++) { cx += P0[k][0]; cy += P0[k][1]; }
+    const c = [cx / n, cy / n];
+    const ang = l.shape.kind === 'rect' ? Math.atan2(P0[1][1] - P0[0][1], P0[1][0] - P0[0][0]) * 180 / Math.PI : 0;
+    return { c, ang };
+  }
+  function resizeShape(l, ch) {
+    const f = shapeFrame(l); Object.assign(l.shape, ch);
+    l.pts = l.shape.kind === 'rect' ? rectPts(f.c, l.shape.w, l.shape.h, f.ang) : circlePts(f.c, l.shape.r);
+    lineCommit(l); drawLines(); renderLineList(); record();
+  }
+  const SH = Object.assign({ w: 200, h: 100, r: 50 }, (() => { try { return JSON.parse(pget('pp_shape') || '{}'); } catch (e) { return {}; } })());
+  const saveSH = () => pset('pp_shape', JSON.stringify(SH));
+  const selShape = () => { const l = selLine(); return l && l.shape && l.pts ? l : null; };
+  // the bar shows for the Rectangle / Circle tools, and for a selected rectangle or circle
+  function shapeKind() { const l = selShape(); if (l) return l.shape.kind; if (S.step === 'project' && S.tool === 'line' && (S.pen === 'rect' || S.pen === 'circle')) return S.pen; return null; }
+  function syncShapeBar() {
+    if (!shapesReady) return;
+    const bar = $('#shapePop'); if (!bar) return;
+    const kind = shapeKind(); bar.hidden = !kind;
+    if (!kind) return;
+    const l = selShape(), d = S.draft && S.draft.shape ? S.draft.shape : null, src = d || (l ? l.shape : SH);
+    bar.dataset.kind = kind;
+    $('#shpTitle').textContent = kind === 'rect' ? 'Rectangle' : 'Circle';
+    const put = (id, mm) => { const el = $(id); if (document.activeElement !== el && mm != null) el.value = fmtU(mm); el.step = B.unit === 'mm' ? '1' : B.unit === 'cm' ? '0.1' : '0.125'; };
+    put('#shpW', src.w ?? SH.w); put('#shpH', src.h ?? SH.h); put('#shpR', src.r ?? SH.r); put('#shpC', (src.r ?? SH.r) * 2 * Math.PI);
+    $$('#shpUnits [data-bu]').forEach(b => b.classList.toggle('on', B.unit === b.dataset.bu));
+    $('#shpPlace').hidden = $('#shpPlaceSep').hidden = !!l;
+    placeShapeBar();
+  }
+  function placeShapeBar() {
+    const bb = $('#shapePop'); if (!bb || bb.hidden) return;
+    const sp = barSpace(), tb = $('#toolbox');
+    let x0 = sp.x0, x1 = sp.x1;
+    if (!tb.hidden) { const r = tb.getBoundingClientRect(); if (r.width) { if (r.left > innerWidth / 2) x1 = Math.min(x1, r.left); else x0 = Math.max(x0, r.right); } }
+    bb.style.left = ((x0 + x1) / 2) + 'px'; bb.style.maxWidth = Math.max(240, x1 - x0 - 24) + 'px';
+    let top = 56;
+    for (let pass = 0; pass < 3; pass++) [$('#lineBar'), $('#gridPop'), $('#biasPop')].forEach(el => {
+      if (!el || el.hidden || el.classList.contains('bottom')) return;
+      const r = el.getBoundingClientRect();
+      if (r.height && r.top < top + 50 && r.bottom > top - 4) top = r.bottom + 8;
+    });
+    bb.style.top = top === 56 ? '' : top + 'px';
+  }
+  // typed sizes: change the selected shape, or set the size for the next one
+  const readU = el => { const v = parseFloat(el.value) * UF[B.unit]; return v > 0 && v <= 5000 ? v : null; };
+  function shapeInput(field, el) {
+    let v = readU(el); if (v == null) return;
+    const ch = field === 'c' ? { r: v / (2 * Math.PI) } : { [field]: v };
+    const l = selShape();
+    if (l) resizeShape(l, ch); else { Object.assign(SH, ch); saveSH(); }
+    syncShapeBar();
+  }
+  [['#shpW', 'w'], ['#shpH', 'h'], ['#shpR', 'r'], ['#shpC', 'c']].forEach(([id, f]) => {
+    const el = $(id);
+    el.addEventListener('input', () => shapeInput(f, el));
+    el.addEventListener('change', () => { shapeInput(f, el); el.blur(); });
+    el.addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'Enter') { shapeInput(f, el); el.blur(); if (!selShape()) $('#shpPlace').click(); } if (e.key === 'Escape') el.blur(); });
+    el.addEventListener('blur', () => syncShapeBar());
+  });
+  $('#shpPlace').addEventListener('click', () => {
+    const kind = shapeKind(); if (!kind) return;
+    // in the middle of what you can see of the mat
+    const c = toMm(barSpace().mid, innerHeight / 2);
+    const l = kind === 'rect' ? { type: 'free', shape: { kind, w: SH.w, h: SH.h }, pts: rectPts(c, SH.w, SH.h, 0) } : { type: 'free', shape: { kind, r: SH.r }, pts: circlePts(c, SH.r) };
+    addLine(l); record(); drawLines(); syncLineBar(); syncShapeBar();
+  });
+  // one unit setting for bias strips and shapes
+  $$('#shpUnits [data-bu]').forEach(b => b.addEventListener('click', () => setBias({ unit: b.dataset.bu })));
+  { const _sb = syncBias; syncBias = function () { _sb(); syncShapeBar(); }; }
+  shapesReady = true;
   function syncGridBtn() { const b = $('#tbGrid'); b.classList.toggle('on', !!S.grid); b.setAttribute('aria-pressed', String(!!S.grid)); }
   $('#gridChk').addEventListener('change', e => setGrid(e.target.checked));
   function openPop(pop, btn) {
@@ -6312,6 +6455,8 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
       overviewBtn: ['Select area', 'O', ['See the whole pattern zoomed out and tap the part you want in the middle of your mat.']],
       align:    ['Straighten', 'S', ['Tap two points on the printed grainline. The piece turns so the grain runs straight on your mat.']],
       line:     ['Straight line', 'L', ['Draw a straight line: a cutting line, fold or grain mark. Colour and style live in the bar at the top.']],
+      rect:     ['Rectangle', 'M', ['Drag from one corner to the other (hold Shift for a square). Or type the width and height in the bar at the top and tap Place. Select a rectangle to change its size.']],
+      circle:   ['Circle', 'C', ['Drag out from the centre. Or type the radius or the circumference in the bar at the top and tap Place. Select a circle to change its size.']],
       free:     ['Freehand', 'P', ['Draw freely, like a chalk pen, for notches, darts and alterations.']],
       tbRuler:  ['Ruler', '', ['Draws a line that shows its length as you draw. Straight to start with.', 'Hold|Straight or freehand, cm or inches.']],
       tbSnap:   ['Snap', 'N', ['Lines you draw jump onto pattern lines and corners. Turn off to place them freely.']],
@@ -6433,7 +6578,7 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
     if ((k === 'g' || k === 'G') && S.step === 'project' && !e.metaKey && !e.ctrlKey) { $('#tbGrid').click(); return; }
     if ((k === 't' || k === 'T') && S.step === 'project' && !e.metaKey && !e.ctrlKey) { $('#tbBias').click(); return; }
     if ((k === 'a' || k === 'A') && S.step === 'project' && !e.metaKey && !e.ctrlKey) { grainToLast(false); return; }
-    const TK = { v: 'move', l: 'line', p: 'free' };
+    const TK = { v: 'move', l: 'line', p: 'free', m: 'rect', c: 'circle' };
     if (S.step === 'project' && TK[k.toLowerCase()] && !e.metaKey && !e.ctrlKey) { toggleTool(TK[k.toLowerCase()]); return; }
     if (S.step === 'project' && (k === '[' || k === ']' || k === '{' || k === '}')) { e.preventDefault(); turn((k === '[' || k === '{' ? -1 : 1) * (e.shiftKey ? 0.1 : 1)); return; }
     const dirs = { ArrowUp: [0, -1], ArrowDown: [0, 1], ArrowLeft: [-1, 0], ArrowRight: [1, 0] };
