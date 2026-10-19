@@ -1765,7 +1765,7 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
     const bar = $('#lineBar'); if (!bar) return;
     const l = S.step === 'project' ? selLine() : null;
     const pen = !l && S.step === 'project' && S.tool === 'line';
-    bar.hidden = !l && !pen; if (bar.hidden) { bar.dataset.mode = ''; return; }
+    bar.hidden = !l && !pen; if (bar.hidden) { bar.dataset.mode = ''; syncRotUI(); return; }
     const mode = l ? 'sel:' + l.id : 'pen';
     $$('.lbPen', bar).forEach(e => e.hidden = !pen); $$('.lbSel', bar).forEach(e => e.hidden = pen);
     $('#lineBarName').hidden = true;
@@ -1801,7 +1801,7 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
     const sp = barSpace();
     if (!bar.classList.contains('free') || bar.dataset.snap === '1') bar.style.left = sp.mid + 'px';
     bar.style.maxWidth = Math.max(240, sp.x1 - sp.x0 - 32) + 'px';
-    requestAnimationFrame(placeGridBar);
+    requestAnimationFrame(placeGridBar); syncRotUI();
   }
   function selectLine(id, fromInput) {
     if (fromInput && S.selId === id) return;
@@ -4189,7 +4189,7 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
     patWrap.style.width = cw + 'px'; patWrap.style.height = ch + 'px';
     patWrap.style.transform = `translate(${S.pc.x * K}px, ${S.pc.y * K}px) rotate(${S.rot}deg) scale(${S.flip ? -1 : 1}, 1) translate(${-cw / 2}px, ${-ch / 2}px)`;
     if (B && B.on && B.drawnRot !== S.rot) { B.drawnRot = S.rot; drawBias(); }
-    $('#rotRange').value = S.rot; { const rv = $('#rotVal'); if (document.activeElement !== rv) rv.value = S.rot.toFixed(1); }
+    syncRotUI();
     if (S.lines.some(l => l.pinned)) { syncPinned(); drawLines(); }
     updateMirror();
     if (typeof updatePivotMark === 'function') updatePivotMark();
@@ -4719,10 +4719,10 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
     const endTol = pxToMm(touch ? 30 : 24, [e.clientX, e.clientY]), bodyTol = pxToMm(touch ? 26 : 14, [e.clientX, e.clientY]);
     // the round handle above a selection turns it (and its whole group)
     if (S.tool === 'move' && S.rotHandle && Math.hypot(p0[0] - S.rotHandle.p[0], p0[1] - S.rotHandle.p[1]) < pxToMm(touch ? 30 : 18, [e.clientX, e.clientY])) {
-      const c = S.rotHandle.c, mem = selMembers(), snapL = mem.map(l => ({ l, cp: l.type === 'curve' ? curveFlat(l).map(q => q.slice()) : null, a: l.a && l.a.slice(), b: l.b && l.b.slice(), pts: l.pts && l.pts.map(q => q.slice()) })).sort((x, y) => (x.l.rel ? 1 : 0) - (y.l.rel ? 1 : 0));
+      const c = S.rotHandle.c, mem = selMembers(), snapL = mem.map(l => ({ l, cp: l.type === 'curve' ? curveFlat(l).map(q => q.slice()) : null, a: l.a && l.a.slice(), b: l.b && l.b.slice(), pts: l.pts && l.pts.map(q => q.slice()), rot0: l.rot || 0 })).sort((x, y) => (x.l.rel ? 1 : 0) - (y.l.rel ? 1 : 0));
       const a0 = Math.atan2(p0[1] - c[1], p0[0] - c[0]);
       const rot = (q, t) => { const dx = q[0] - c[0], dy = q[1] - c[1], co = Math.cos(t), si = Math.sin(t); return [c[0] + dx * co - dy * si, c[1] + dx * si + dy * co]; };
-      const apply = t => snapL.forEach(o => { if (o.cp) curveSet(o.l, o.cp.map(q => rot(q, t))); else if (o.pts) o.l.pts = o.pts.map(q => rot(q, t)); else { o.l.a = rot(o.a, t); o.l.b = rot(o.b, t); } lineCommit(o.l); });
+      const apply = t => snapL.forEach(o => { if (o.cp) curveSet(o.l, o.cp.map(q => rot(q, t))); else if (o.pts) o.l.pts = o.pts.map(q => rot(q, t)); else { o.l.a = rot(o.a, t); o.l.b = rot(o.b, t); } o.l.rot = Math.round(norm180(o.rot0 + t * 180 / Math.PI) * 100) / 100; lineCommit(o.l); }); syncRotUI();
       const fixedHandle = S.rotHandle;
       return {
         move: ev => {
@@ -6169,14 +6169,36 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
   { const rv = $('#rotVal');
     const commitRot = () => {
       const v = parseFloat(String(rv.value).replace(',', '.').replace('°', ''));
-      if (!isFinite(v)) { rv.value = S.rot.toFixed(1); return; }
-      const want = Math.max(-180, Math.min(180, v)); turn(want - S.rot); rv.value = S.rot.toFixed(1);
+      if (!isFinite(v)) { syncRotUI(); return; }
+      const want = Math.max(-180, Math.min(180, v)); turnTo(want); syncRotUI();
     };
     rv.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); commitRot(); rv.blur(); } else if (e.key === 'Escape') { rv.value = S.rot.toFixed(1); rv.blur(); } });
     rv.addEventListener('change', commitRot);
     rv.addEventListener('focus', () => rv.select());
   }
-  $('#rotRange').addEventListener('input', e => turn(+e.target.value - S.rot));
+  // the rotation slider turns the selected objects when something is selected, otherwise the pattern (and the bias strips)
+  function selAngle() { const m = S.step === 'project' ? selMembers() : []; return m.length ? (m[0].rot || 0) : null; }
+  function rotateSel(d) {
+    const m = selMembers(); if (!m.length || !d) return;
+    // turn round the middle of all their points (it stays put however far they turn)
+    let sx = 0, sy = 0, n = 0;
+    m.forEach(l => (l.type === 'curve' ? curveFlat(l) : ptsOf(l)).forEach(q => { sx += q[0]; sy += q[1]; n++; }));
+    const c = [sx / n, sy / n], t = rad(d), co = Math.cos(t), si = Math.sin(t);
+    const rot = q => { const dx = q[0] - c[0], dy = q[1] - c[1]; return [c[0] + dx * co - dy * si, c[1] + dx * si + dy * co]; };
+    m.slice().sort((x, y) => (x.rel ? 1 : 0) - (y.rel ? 1 : 0)).forEach(l => {
+      if (l.type === 'curve') curveSet(l, curveFlat(l).map(rot)); else if (l.pts) l.pts = l.pts.map(rot); else { l.a = rot(l.a); l.b = rot(l.b); }
+      l.rot = Math.round(norm180((l.rot || 0) + d) * 100) / 100; lineCommit(l);
+    });
+    drawLines(); record(); syncRotUI();
+  }
+  function syncRotUI() {
+    const rr = $('#rotRange'), rv = $('#rotVal'); if (!rr) return;
+    const a = selAngle(), v = a == null ? S.rot : a;
+    rr.value = v; if (document.activeElement !== rv) rv.value = (+v).toFixed(1);
+    const lab = document.querySelector('label[for="rotRange"]'); if (lab) lab.textContent = a == null ? 'Rotation' : 'Rotation · selected';
+  }
+  function turnTo(want) { const a = selAngle(); if (a == null) turn(want - S.rot); else rotateSel(norm180(want - a)); }
+  $('#rotRange').addEventListener('input', e => turnTo(+e.target.value));
   // Centre and Level 0° also put the rotation point back in the middle
   function pivotToMiddle() { const p = S.oneAt ? curPiece() : null; if (p) delete p.pivot; else S.pivotWhole = null; }
   $('#zeroRot').addEventListener('click', () => { pivotToMiddle(); turn(-S.rot); });
