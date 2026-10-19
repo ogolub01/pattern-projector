@@ -498,6 +498,10 @@ body.bare #shapePop, body.phone #shapePop { display: none !important; }
 #ptmPop .gbLabel { font-size: 9.5px; letter-spacing: .16em; text-transform: uppercase; color: var(--brass); }
 #ptmPop > .btn { height: 30px; padding: 0 9px; font-size: 10px; flex: none; }
 #ptmPop .shpF { display: flex; align-items: center; gap: 6px; font-size: 9.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--mute); }
+#ptmPop .ptmDial { width: 38px; height: 38px; flex: none; color: var(--mute); cursor: grab; touch-action: none; margin: -4px 0; }
+#ptmPop .ptmDial:active { cursor: grabbing; }
+#ptmPop .ptmDial:focus-visible { outline: 1px solid var(--brass); outline-offset: 2px; }
+#ptmPop .ptmDial svg { width: 100%; height: 100%; display: block; }
 #ptmPop .ptmDeg { color: var(--mute); font: 13px "IBM Plex Mono", monospace; margin-left: -2px; }
 #ptmPop input { width: 88px; height: 30px; box-sizing: border-box; background: transparent; border: 1px solid var(--line); color: var(--ink); font: 16px "IBM Plex Mono", monospace; text-align: right; padding: 0 6px; -moz-appearance: textfield; }
 #ptmPop input:focus { border-color: var(--brass); outline: none; }
@@ -968,10 +972,9 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
   <span class="gbLabel" id="ptmTitle">Move A → B</span>
   <label class="shpF"><span>Distance</span><input type="number" id="ptmD" step="any" inputmode="decimal" aria-label="Distance moved"></label>
   <label class="shpF"><span>Angle</span><input type="number" id="ptmA" step="any" inputmode="decimal" aria-label="Angle of the move in degrees"><span class="ptmDeg">°</span></label>
+  <span class="ptmDial" id="ptmDial" role="slider" tabindex="0" aria-label="Direction of the move: drag round to turn" aria-valuemin="-180" aria-valuemax="180" title="Drag round to change the direction · Shift: 15° steps"><svg viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="17" fill="none" stroke="currentColor" stroke-width="1" opacity=".45"/><path d="M20 2.5v3M37.5 20h-3M20 37.5v-3M2.5 20h3" stroke="currentColor" stroke-width="1" opacity=".45"/><circle cx="20" cy="20" r="1.6" fill="currentColor"/><g id="ptmNeedle"><path d="M20 20H34" stroke="var(--brass)" stroke-width="1.6" stroke-linecap="round"/><circle cx="34" cy="20" r="2.6" fill="var(--brass)"/></g></svg></span>
   <span class="vsep"></span>
   <button class="dd" id="ptmUBtn" aria-haspopup="menu" aria-label="Units"></button>
-  <span class="vsep" id="ptmGoSep"></span>
-  <button class="btn" id="ptmGo" title="Move by the distance and angle typed here">Move</button>
 </div>
 
 <div id="lineBar" hidden role="toolbar" aria-label="Line colour and style">
@@ -4464,7 +4467,7 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
       if (best) togglePick(best);
       return null;
     }
-    if (S.tool === 'ptm') { ptmTap(p0, e); return null; }
+    if (S.tool === 'ptm') return ptmGesture(p0, e);
     if (S.tool === 'align') {
       const sp = snapPoint(p0, e);
       S.alignPts.push(sp ? sp.p : p0);
@@ -5189,7 +5192,7 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
 
   /* ---------- tools and toolbox ---------- */
   const TOOL_HINT = {
-    ptm: 'Point to point · tap a point on the pattern (A), then tap where it should go (B)',
+    ptm: 'Point to point · tap A on the pattern, then tap B · or press on A and drag to B',
     move: 'Move · drag the pattern, or grab a line or its end to adjust it',
     line: 'Straight line · drag on the mat; grab an end of a line to adjust it',
     free: 'Freehand · draw with a finger, mouse or Apple Pencil',
@@ -6187,11 +6190,48 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
   // angle: 0° = to the right, 90° = up the mat, like a protractor laid on the mat
   const ptmAng = (a, b) => deg(Math.atan2(-(b[1] - a[1]), b[0] - a[0]));
   const ptmFmt = mm => { const v = mm / UF[B.unit]; return (+v.toFixed(B.unit === 'mm' ? 1 : B.unit === 'cm' ? 2 : 3)) + (B.unit === 'in' ? '"' : ' ' + B.unit); };
-  function ptmTap(p0, e) {
-    const sp = snapPoint(p0, e), p = sp ? sp.p : p0;
-    const T = S.ptm;
-    if (!T || !T.a || T.b) { S.ptm = { a: p, b: null, base: null }; toast('Now tap where point A should go'); }
-    else { ptmApply(T.a, p); toast('Moved ' + ptmFmt(Math.hypot(p[0] - T.a[0], p[1] - T.a[1])) + ' at ' + ptmAng(T.a, p).toFixed(1) + '° · tap a new A to move again'); }
+  // press on A: drag to B and let go, or tap A then tap B
+  function ptmGesture(p0, e) {
+    const pick = (cx, cy, ev) => { const q = toMm(cx, cy), sp = snapPoint(q, ev); return sp ? sp.p : q; };
+    const T = S.ptm, sx = e.clientX, sy = e.clientY;
+    // after a move: press on B and drag to correct it (A stays where it was)
+    if (T && T.b && T.base) {
+      const q = toScreen(T.b), near = e.pointerType !== 'mouse' ? 30 : 18;
+      if (q && Math.hypot(q[0] - sx, q[1] - sy) < near) {
+        const off = [T.b[0] - toMm(sx, sy)[0], T.b[1] - toMm(sx, sy)[1]];
+        const to = ev => { const m = toMm(ev.clientX, ev.clientY), raw = [m[0] + off[0], m[1] + off[1]], sp = snapPoint(raw, ev), b = sp ? sp.p : raw; ptmSet(Math.hypot(b[0] - T.a[0], b[1] - T.a[1]), ptmAng(T.a, b)); };
+        const b0 = [...T.b];
+        return { move: to, up: () => {}, abort: () => ptmSet(Math.hypot(b0[0] - T.a[0], b0[1] - T.a[1]), ptmAng(T.a, b0)) };
+      }
+    }
+    if (T && T.a && !T.b) {
+      // second tap: B is where the finger lifts (it can slide a little to fine-tune)
+      T.hover = pick(sx, sy, e); drawLines();
+      return {
+        move: ev => { T.hover = pick(ev.clientX, ev.clientY, ev); drawLines(); },
+        up: ev => { const b = ev ? pick(ev.clientX, ev.clientY, ev) : T.hover; T.hover = null; ptmDone(T.a, b); },
+        abort: () => { T.hover = null; drawLines(); }
+      };
+    }
+    const a = pick(sx, sy, e);
+    S.ptm = { a, b: null, base: null, hover: null }; drawLines(); syncPtmBar();
+    let dragged = false;
+    return {
+      move: ev => {
+        if (!dragged && Math.hypot(ev.clientX - sx, ev.clientY - sy) < 6) return;
+        dragged = true; S.ptm.hover = pick(ev.clientX, ev.clientY, ev); drawLines();
+      },
+      up: ev => {
+        if (dragged) { const b = ev ? pick(ev.clientX, ev.clientY, ev) : S.ptm.hover; S.ptm.hover = null; ptmDone(a, b); }
+        else toast('Now tap where point A should go · or press on A and drag');
+      },
+      abort: () => { S.ptm = null; drawLines(); syncPtmBar(); }
+    };
+  }
+  function ptmDone(a, b) {
+    if (!b || Math.hypot(b[0] - a[0], b[1] - a[1]) < 0.2) { S.ptm = { a, b: null, base: null }; drawLines(); return; }
+    ptmApply(a, b);
+    toast('Moved ' + ptmFmt(Math.hypot(b[0] - a[0], b[1] - a[1])) + ' at ' + ptmAng(a, b).toFixed(1) + '° · drag B to correct it, or tap elsewhere for a new A');
     drawLines(); syncPtmBar();
   }
   // a fresh move from where the pattern is now
@@ -6199,37 +6239,34 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
     S.ptm = { a, b, base: { ...S.pc } };
     movePattern(b[0] - a[0], b[1] - a[1]); record();
   }
-  // typed distance / angle: re-place the last move (or make a new one from A, or from the middle of the mat)
-  function ptmTyped(go) {
-    const d = parseFloat(String($('#ptmD').value).replace(',', '.')) * UF[B.unit];
-    const ang = parseFloat(String($('#ptmA').value).replace(',', '.'));
-    if (!isFinite(d) || d < 0 || d > 10000 || !isFinite(ang)) return;
-    const v = [d * Math.cos(rad(ang)), -d * Math.sin(rad(ang))], T = S.ptm;
-    if (T && T.b && T.base) {
-      T.b = [T.a[0] + v[0], T.a[1] + v[1]];
-      S.pc = { x: T.base.x + v[0], y: T.base.y + v[1] }; placePattern(); record();
-    } else if (go) {
-      const a = T && T.a ? T.a : toMm(barSpace().mid, innerHeight / 2);
-      ptmApply(a, [a[0] + v[0], a[1] + v[1]]);
-    } else return;
+  // re-place the last move with a new distance and / or angle
+  function ptmSet(d, ang) {
+    const T = S.ptm; if (!T || !T.b || !T.base || !isFinite(d) || d < 0 || d > 10000 || !isFinite(ang)) return;
+    const v = [d * Math.cos(rad(ang)), -d * Math.sin(rad(ang))];
+    T.b = [T.a[0] + v[0], T.a[1] + v[1]];
+    S.pc = { x: T.base.x + v[0], y: T.base.y + v[1] }; placePattern(); record();
     drawLines(); syncPtmBar();
+  }
+  const ptmLen = () => { const T = S.ptm; return T && T.b ? Math.hypot(T.b[0] - T.a[0], T.b[1] - T.a[1]) : 0; };
+  function ptmTyped() {
+    const T = S.ptm; if (!T || !T.b) return;
+    const dv = parseFloat(String($('#ptmD').value).replace(',', '.')), av = parseFloat(String($('#ptmA').value).replace(',', '.'));
+    ptmSet(isFinite(dv) ? dv * UF[B.unit] : ptmLen(), isFinite(av) ? av : ptmAng(T.a, T.b));
   }
   function syncPtmBar() {
     const bar = $('#ptmPop'); if (!bar) return;
-    bar.hidden = !(S.step === 'project' && S.tool === 'ptm');
-    if (bar.hidden) return;
     const T = S.ptm, moved = !!(T && T.b);
-    $('#ptmTitle').textContent = moved ? 'Moved A → B' : T && T.a ? 'Tap B · or type' : 'Tap A · or type';
+    bar.hidden = !(S.step === 'project' && S.tool === 'ptm' && moved);
+    if (bar.hidden) return;
+    $('#ptmTitle').textContent = 'Moved A → B';
     const put = (el, v) => { if (document.activeElement !== el) el.value = v; };
-    if (moved) {
-      const L = Math.hypot(T.b[0] - T.a[0], T.b[1] - T.a[1]);
-      put($('#ptmD'), String(+(L / UF[B.unit]).toFixed(B.unit === 'mm' ? 1 : B.unit === 'cm' ? 2 : 3)));
-      put($('#ptmA'), String(+ptmAng(T.a, T.b).toFixed(1)));
-    } else if (document.activeElement !== $('#ptmD') && document.activeElement !== $('#ptmA') && !$('#ptmD').value) { $('#ptmD').value = ''; $('#ptmA').value = '0'; }
+    const L = ptmLen(), ang = ptmAng(T.a, T.b);
+    put($('#ptmD'), String(+(L / UF[B.unit]).toFixed(B.unit === 'mm' ? 1 : B.unit === 'cm' ? 2 : 3)));
+    put($('#ptmA'), String(+ang.toFixed(1)));
+    $('#ptmNeedle').setAttribute('transform', `rotate(${-ang} 20 20)`);
+    $('#ptmDial').setAttribute('aria-valuenow', String(+ang.toFixed(1)));
     $('#ptmD').step = B.unit === 'mm' ? '1' : B.unit === 'cm' ? '0.1' : '0.125';
     $('#ptmUBtn').textContent = UNAME[B.unit];
-    // once a move is made the numbers edit it live; before that, Move applies them
-    $('#ptmGo').hidden = $('#ptmGoSep').hidden = moved;
     placePtmBar();
   }
   function placePtmBar() {
@@ -6248,11 +6285,28 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
   }
   ['#ptmD', '#ptmA'].forEach(id => {
     const el = $(id);
-    el.addEventListener('input', () => ptmTyped(false));
-    el.addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'Enter') { ptmTyped(true); el.blur(); } if (e.key === 'Escape') el.blur(); });
+    el.addEventListener('input', () => ptmTyped());
+    el.addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'Enter') { ptmTyped(); el.blur(); } if (e.key === 'Escape') el.blur(); });
     el.addEventListener('blur', () => syncPtmBar());
   });
-  $('#ptmGo').addEventListener('click', () => ptmTyped(true));
+  // the dial: drag round it to point the move in any direction (the distance stays the same)
+  { const dial = $('#ptmDial');
+    const angAt = ev => { const r = dial.getBoundingClientRect(); let a = deg(Math.atan2(-(ev.clientY - (r.top + r.height / 2)), ev.clientX - (r.left + r.width / 2))); a = ev.shiftKey ? Math.round(a / 15) * 15 : Math.round(a * 2) / 2; return a > 180 ? a - 360 : a; };
+    dial.addEventListener('pointerdown', ev => {
+      if (!S.ptm || !S.ptm.b) return;
+      ev.preventDefault(); ev.stopPropagation(); dial.setPointerCapture(ev.pointerId);
+      ptmSet(ptmLen(), angAt(ev));
+      const mv = e2 => ptmSet(ptmLen(), angAt(e2));
+      const up = () => { dial.removeEventListener('pointermove', mv); dial.removeEventListener('pointerup', up); dial.removeEventListener('pointercancel', up); };
+      dial.addEventListener('pointermove', mv); dial.addEventListener('pointerup', up); dial.addEventListener('pointercancel', up);
+    });
+    dial.addEventListener('keydown', ev => {
+      const T = S.ptm; if (!T || !T.b) return;
+      const st = ev.shiftKey ? 15 : 1, a = ptmAng(T.a, T.b);
+      if (ev.key === 'ArrowLeft' || ev.key === 'ArrowUp') { ev.preventDefault(); ev.stopPropagation(); ptmSet(ptmLen(), a + st); }
+      else if (ev.key === 'ArrowRight' || ev.key === 'ArrowDown') { ev.preventDefault(); ev.stopPropagation(); ptmSet(ptmLen(), a - st); }
+    });
+  }
   ddList($('#ptmUBtn'), unitItems(() => B.unit, u => setBias({ unit: u })));
   { const _sb = syncBias; syncBias = function () { _sb(); syncPtmBar(); }; }
   // with the mouse, a live arrow from A to the pointer
