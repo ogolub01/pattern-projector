@@ -471,13 +471,13 @@ input.dup, .prow input.dup, .pwTile input.dup { color: var(--danger) !important;
 #gridPop .gbRange input , #biasPop .gbRange input { width: 110px; }
 #gridPop .gbRange output , #biasPop .gbRange output { font-size: 11px; color: var(--ink); min-width: 34px; font-variant-numeric: tabular-nums; letter-spacing: 0; }
 body.bare #gridPop, body.bare #biasPop { display: none !important; }
-#biasPop .bpal { display: flex; gap: 4px; }
-#biasPop .bpal button { width: 28px; height: 28px; border: 1px solid var(--line); background: transparent; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0; position: relative; overflow: hidden; }
-#biasPop .bpal button i { width: 16px; height: 16px; border-radius: 50%; background: var(--c); display: block; border: 1px solid #555; }
-#biasPop .bpal button.wheel i { background: conic-gradient(#000000, #FF6B5E, #C9A24B, #FFFFFF, #000000) !important; }
-#biasPop .bpal button.wheel input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; border: 0; padding: 0; }
-#biasPop .bpal button[aria-pressed="true"] { border-color: var(--brass); box-shadow: inset 0 0 0 1px var(--brass); }
-#biasPop .bpal button:disabled { opacity: .25; cursor: not-allowed; }
+#biasColMenu .bpal { display: flex; gap: 4px; }
+#biasColMenu .bpal button { width: 28px; height: 28px; border: 1px solid var(--line); background: transparent; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0; position: relative; overflow: hidden; }
+#biasColMenu .bpal button i { width: 16px; height: 16px; border-radius: 50%; background: var(--c); display: block; border: 1px solid #555; }
+#biasColMenu .bpal button.wheel i { background: conic-gradient(#000000, #FF6B5E, #C9A24B, #FFFFFF, #000000) !important; }
+#biasColMenu .bpal button.wheel input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; border: 0; padding: 0; }
+#biasColMenu .bpal button[aria-pressed="true"] { border-color: var(--brass); box-shadow: inset 0 0 0 1px var(--brass); }
+#biasColMenu .bpal button:disabled { opacity: .25; cursor: not-allowed; }
 #biasPop .seg .btn svg { display: block; }
 #biasPop .ib.lsbtn { width: 44px; height: 30px; border: 1px solid var(--line); background: transparent; color: var(--ink); cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
 #bwPop[hidden] { display: none; }
@@ -493,10 +493,30 @@ body.bare #gridPop, body.bare #biasPop { display: none !important; }
 #shapePop input:focus { border-color: var(--brass); outline: none; }
 #shapePop input::-webkit-inner-spin-button, #shapePop input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
 body.bare #shapePop, body.phone #shapePop { display: none !important; }
+.numIn { border-color: var(--line) !important; } .numIn:focus { border-color: var(--brass) !important; outline: none; }
+#biasCustom.numIn { border-color: var(--brass) !important; }
+.dd { height: 30px; display: inline-flex; align-items: center; justify-content: space-between; gap: 8px; padding: 0 9px 0 10px; border: 1px solid var(--line); background: transparent; color: var(--ink); font: 11px "IBM Plex Mono", monospace; letter-spacing: .08em; cursor: pointer; flex: none; box-sizing: border-box; -webkit-user-select: none; user-select: none; }
+.dd::after { content: ''; width: 5px; height: 5px; border-right: 1px solid var(--mute); border-bottom: 1px solid var(--mute); transform: translateY(-2px) rotate(45deg); flex: none; }
+.dd.open { border-color: var(--brass); }
+.dd.ddCol i { width: 16px; height: 16px; border-radius: 50%; border: 1px solid #555; display: block; }
+#biasWBtn { min-width: 84px; } #biasUBtn, #gridUBtn, #shpUBtn { min-width: 58px; }
+.ddMenu { position: fixed; z-index: 9; display: flex; flex-direction: column; gap: 2px; padding: 4px; background: var(--panel); border: 1px solid var(--line); box-shadow: 0 10px 40px rgba(0,0,0,.55); }
+.ddMenu[hidden] { display: none !important; }
+.ddMenu.row { flex-direction: row; gap: 4px; padding: 6px; }
+.ddMenu > button { min-width: 84px; height: 32px; padding: 0 12px; text-align: left; border: 1px solid transparent; background: transparent; color: var(--ink); font: 11px "IBM Plex Mono", monospace; letter-spacing: .08em; cursor: pointer; }
+.ddMenu > button:hover { background: var(--raise); }
+.ddMenu > button[aria-pressed="true"] { color: var(--brass); border-color: var(--brass); }
+#gridColMenu .pal { display: flex; gap: 4px; }
+#gridPop .numIn, #biasPop .numIn, #shapePop .numIn { width: 72px !important; min-width: 0; max-width: 72px; flex: none; height: 30px; box-sizing: border-box; background: transparent; color: var(--ink); font: 16px "IBM Plex Mono", monospace; text-align: right; padding: 0 6px; border: 1px solid; margin: 0; }
+#biasPop .gbRange input, #gridPop .gbRange input { width: 84px; }
+#biasPop { gap: 8px; }
+#biasPop .gbRange { gap: 6px; }
+#gridColMenu .pal button { width: 32px; height: 32px; }
+body.bare .ddMenu, body.phone .ddMenu { display: none !important; }
 #biasCustomBox { display: none; align-items: center; gap: 4px; font-size: 9.5px; letter-spacing: .12em; color: var(--mute); }
 #biasCustomBox.on { display: flex; }
-#biasCustom { width: 72px; -moz-appearance: textfield; height: 30px; box-sizing: border-box; background: transparent; border: 1px solid var(--brass); color: var(--ink); font: 12px "IBM Plex Mono", monospace; text-align: right; padding: 0 6px; font-size: 16px; }
-#biasCustom::-webkit-inner-spin-button, #biasCustom::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+#biasCustom, .numIn { width: 72px; -moz-appearance: textfield; height: 30px; box-sizing: border-box; background: transparent; border: 1px solid var(--brass); color: var(--ink); font: 12px "IBM Plex Mono", monospace; text-align: right; padding: 0 6px; font-size: 16px; }
+#biasCustom::-webkit-inner-spin-button, #biasCustom::-webkit-outer-spin-button, .numIn::-webkit-inner-spin-button, .numIn::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
 #lineBar.bottom { top: auto; bottom: calc(14px + env(safe-area-inset-bottom, 0px)); }
 #lineBar.free { transform: translateX(-50%); bottom: auto !important; width: max-content; max-width: calc(100% - 16px); }
 #lineBar { padding-left: 4px !important; }
@@ -893,35 +913,22 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
 
 <div id="gridPop" hidden role="toolbar" aria-label="Grid options">
   <span class="gbLabel">Grid</span>
-  <div class="seg" role="group" aria-label="Grid size">
-    <button class="btn on" data-grid="50">5 CM</button>
-    <button class="btn" data-grid="10">1 CM</button>
-  </div>
+  <input type="number" class="numIn" id="gridSizeIn" step="any" inputmode="decimal" aria-label="Grid size">
+  <button class="dd" id="gridUBtn" aria-haspopup="menu" aria-label="Grid units"></button>
   <span class="vsep"></span>
-  <div class="pal" data-target="grid" role="group" aria-label="Grid colour"></div>
+  <button class="dd ddCol" id="gridColBtn" aria-haspopup="true" aria-label="Grid colour" title="Grid colour"><i></i></button>
   <span class="vsep"></span>
   <label class="gbRange" title="Brightness"><span>Brightness</span><input type="range" id="gridAlpha" min="10" max="100" step="5" value="60" aria-label="Grid brightness"><output id="gridAlphaVal">60%</output></label>
   <label class="gbRange" title="Thickness"><span>Thickness</span><input type="range" id="gridW" min="0.5" max="3" step="0.25" value="1" aria-label="Grid line thickness"><output id="gridWVal">×1</output></label>
   <input type="checkbox" id="gridChk" hidden>
 </div>
+<div class="ddMenu row" id="gridColMenu" hidden><div class="pal" data-target="grid" role="group" aria-label="Grid colour"></div></div>
 
 <div id="biasPop" hidden role="toolbar" aria-label="Bias strip options">
   <span class="gbLabel">Bias strips</span>
-  <div class="seg" id="biasWidths" role="group" aria-label="Strip width">
-    <button class="btn" data-bw="0"></button>
-    <button class="btn" data-bw="1"></button>
-    <button class="btn" data-bw="2"></button>
-    <button class="btn" data-bw="3"></button>
-    <button class="btn" data-bw="4"></button>
-    <button class="btn" data-bw="custom" title="Your own width">Custom</button>
-  </div>
-  <label id="biasCustomBox"><input type="number" id="biasCustom" step="any" inputmode="decimal" aria-label="Custom strip width"></label>
-  <span class="vsep"></span>
-  <div class="seg" id="biasUnits" role="group" aria-label="Units">
-    <button class="btn" data-bu="mm">MM</button>
-    <button class="btn" data-bu="cm">CM</button>
-    <button class="btn" data-bu="in">IN</button>
-  </div>
+  <button class="dd" id="biasWBtn" aria-haspopup="menu" aria-label="Strip width"></button>
+  <label id="biasCustomBox"><input type="number" id="biasCustom" class="numIn" step="any" inputmode="decimal" aria-label="Custom strip width"></label>
+  <button class="dd" id="biasUBtn" aria-haspopup="menu" aria-label="Units"></button>
   <span class="vsep"></span>
   <div class="seg" id="biasDirs" role="group" aria-label="Strip direction">
     <button class="btn" data-bd="up" title="Bias, rising to the right" aria-label="Bias, rising to the right"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M2 12L12 2"/></svg></button>
@@ -929,21 +936,20 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
     <button class="btn" data-bd="grain" title="Straight strips, along the mat" aria-label="Straight strips"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M7 1.5v11"/></svg></button>
   </div>
   <span class="vsep"></span>
-  <button class="ib lsbtn" id="biasWeight" aria-haspopup="true" title="Line thickness: thin, medium or thick" aria-label="Line thickness"></button>
+  <button class="dd ddCol" id="biasColBtn" aria-haspopup="true" aria-label="Strip line colour" title="Line colour"><i></i></button>
   <span class="vsep"></span>
-  <div class="bpal" id="biasPal" role="group" aria-label="Strip line colour"></div>
+  <label class="gbRange" title="Brightness"><span>Brightness</span><input type="range" id="biasAlpha" min="10" max="100" step="5" value="100" aria-label="Strip line brightness"><output id="biasAlphaVal">100%</output></label>
+  <label class="gbRange" title="Thickness"><span>Thickness</span><input type="range" id="biasTh" min="0.5" max="3" step="0.25" value="1" aria-label="Strip line thickness"><output id="biasThVal">×1</output></label>
 </div>
+<div class="ddMenu row" id="biasColMenu" hidden><div class="bpal" id="biasPal" role="group" aria-label="Strip line colour"></div></div>
+<div class="ddMenu" id="ddMenu" hidden role="menu"></div>
 
 <div id="shapePop" hidden role="toolbar" aria-label="Shape size">
   <span class="gbLabel" id="shpTitle">Rectangle</span>
   <span class="shpRect"><label class="shpF"><span>W</span><input type="number" id="shpW" step="any" inputmode="decimal" aria-label="Width"></label><span class="shpX">×</span><label class="shpF"><span>H</span><input type="number" id="shpH" step="any" inputmode="decimal" aria-label="Height"></label></span>
   <span class="shpCirc"><label class="shpF"><span>Radius</span><input type="number" id="shpR" step="any" inputmode="decimal" aria-label="Radius"></label><label class="shpF"><span>Circumference</span><input type="number" id="shpC" step="any" inputmode="decimal" aria-label="Circumference"></label></span>
   <span class="vsep"></span>
-  <div class="seg" id="shpUnits" role="group" aria-label="Units">
-    <button class="btn" data-bu="mm">MM</button>
-    <button class="btn" data-bu="cm">CM</button>
-    <button class="btn" data-bu="in">IN</button>
-  </div>
+  <button class="dd" id="shpUBtn" aria-haspopup="menu" aria-label="Units"></button>
   <span class="vsep" id="shpPlaceSep"></span>
   <button class="btn" id="shpPlace" title="Put this shape in the middle of the mat">Place</button>
 </div>
@@ -1408,15 +1414,19 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
     const base = calib ? 1 : S.gridAlpha;
     g.save(); g.scale(K, K); g.strokeStyle = col;
     const step = S.gridSize;
+    // stronger lines every 10 cm and 5 cm (every 6" and 1" for an inch grid)
+    const inch = S.gridUnit === 'in', M1 = inch ? 152.4 : 100, M2 = inch ? 25.4 : 50;
+    const isM = (v, m) => Math.abs(v / m - Math.round(v / m)) < 1e-4;
+    const major = v => isM(v, M1);
     const alphaFor = v => {
-      if (Math.abs(v % 100) < 0.01) return base * 0.9;
-      if (Math.abs(v % 50) < 0.01) return base * (step === 10 ? 0.7 : 0.5);
+      if (major(v)) return base * 0.9;
+      if (isM(v, M2)) return base * (step * 5 <= M2 + 0.01 ? 0.7 : 0.5);
       return base * 0.32;
     };
     const gx0 = calib ? 0 : Math.ceil(E.x0 / step) * step, gx1 = calib ? S.w : E.x1, gy0 = calib ? 0 : Math.ceil(E.y0 / step) * step, gy1 = calib ? S.h : E.y1;
     const ly0 = calib ? 0 : E.y0, ly1 = calib ? S.h : E.y1, lx0 = calib ? 0 : E.x0, lx1 = calib ? S.w : E.x1;
-    for (let x = gx0; x <= gx1 + 0.01; x += step) { g.globalAlpha = alphaFor(x); g.lineWidth = (Math.abs(x % 100) < 0.01 ? lw() * 1.3 : lw()) * gw; g.beginPath(); g.moveTo(x, ly0); g.lineTo(x, ly1); g.stroke(); }
-    for (let y = gy0; y <= gy1 + 0.01; y += step) { g.globalAlpha = alphaFor(y); g.lineWidth = (Math.abs(y % 100) < 0.01 ? lw() * 1.3 : lw()) * gw; g.beginPath(); g.moveTo(lx0, y); g.lineTo(lx1, y); g.stroke(); }
+    for (let x = gx0; x <= gx1 + 0.01; x += step) { g.globalAlpha = alphaFor(x); g.lineWidth = (major(x) ? lw() * 1.3 : lw()) * gw; g.beginPath(); g.moveTo(x, ly0); g.lineTo(x, ly1); g.stroke(); }
+    for (let y = gy0; y <= gy1 + 0.01; y += step) { g.globalAlpha = alphaFor(y); g.lineWidth = (major(y) ? lw() * 1.3 : lw()) * gw; g.beginPath(); g.moveTo(lx0, y); g.lineTo(lx1, y); g.stroke(); }
     g.globalAlpha = 1;
     if (calib) {
       g.lineWidth = 1.5; g.strokeRect(0, 0, S.w, S.h);
@@ -5639,7 +5649,7 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
       else { b.querySelector('i').style.setProperty('--c', colHex(b.dataset.c)); b.disabled = (S.bg === 'black' && b.dataset.c === 'black') || (S.bg === 'white' && b.dataset.c === 'white'); }
     });
     $$('button[data-look]').forEach(b => b.classList.toggle('on', b.dataset.look === themeOf()));
-    drawGrid(); drawTest(); drawLines(); renderLineList(); composePattern(false); syncPenChip();
+    drawGrid(); drawTest(); drawLines(); renderLineList(); composePattern(false); syncPenChip(); syncColBtns();
   }
   $$('.pal').forEach(box => {
     const pat = box.dataset.target === 'pat';
@@ -5706,7 +5716,7 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
     record();
     S.gridSize = s; pset('pp_grid', String(s));
     $$('[data-grid]').forEach(b => b.classList.toggle('on', +b.dataset.grid === s));
-    drawGrid();
+    drawGrid(); syncGridUI();
   }
   function setBoost(v) {
     record();
@@ -5776,7 +5786,7 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
     $$('[data-unit]').forEach(x => x.classList.toggle('on', x === b));
     showMat(); drawGrid(); updateFoot();
   }));
-  $$('[data-grid]').forEach(b => b.addEventListener('click', () => setGridSize(+b.dataset.grid)));
+  $$('[data-grid]').forEach(b => b.addEventListener('click', () => { if (S.gridUnit === 'in') { S.gridUnit = 'cm'; pset('pp_gridunit', 'cm'); } setGridSize(+b.dataset.grid); }));
   $$('.boostRange').forEach(r => r.addEventListener('input', e => setBoost(+e.target.value)));
   function updateFoot() { const n = S.setupName || 'New setup'; const el = $('#footSetup'); el.textContent = n; el.title = n; }
 
@@ -5872,8 +5882,10 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
     const gb = document.getElementById('gridPop'); if (!gb) return;
     gb.hidden = !(S.step === 'project' && S.grid);
     if (gb.hidden) return;
-    const sp = barSpace();
-    gb.style.left = sp.mid + 'px'; gb.style.maxWidth = Math.max(240, sp.x1 - sp.x0 - 32) + 'px';
+    const sp = barSpace(), tb = $('#toolbox');
+    let x0 = sp.x0, x1 = sp.x1;
+    if (!tb.hidden) { const r = tb.getBoundingClientRect(); if (r.width) { if (r.left > innerWidth / 2) x1 = Math.min(x1, r.left); else x0 = Math.max(x0, r.right); } }
+    gb.style.left = ((x0 + x1) / 2) + 'px'; gb.style.maxWidth = Math.max(240, x1 - x0 - 24) + 'px';
     const lb = $('#lineBar'), lr = lb.hidden ? null : lb.getBoundingClientRect(), gTop = 56;
     gb.style.top = lr && !lb.classList.contains('bottom') && lr.top < gTop + 50 && lr.bottom > gTop - 4 ? (lr.bottom + 8) + 'px' : '';
   }
@@ -5884,7 +5896,8 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
   var biasC = $('#biasCanvas');
   var B = Object.assign({ on: false, w: 38, custom: 45, dir: 'up', th: 1, col: 'red', hex: '' }, (() => { try { return JSON.parse(pget('pp_bias') || '{}'); } catch (e) { return {}; } })());
   B.on = false; // starts off each time; settings are remembered
-  if (![0.6, 1, 1.7].includes(B.th)) B.th = 1; // same thin / medium / thick as drawn lines
+  if (!(B.th >= 0.5 && B.th <= 3)) B.th = 1;
+  if (!(B.alpha >= 0.1 && B.alpha <= 1)) B.alpha = 1;
   const saveBias = () => pset('pp_bias', JSON.stringify(B));
   // standard widths: mm and cm share one set, inches have their own (1", 1¼", 1½", 2", 2½")
   const BIAS_IN = [1, 1.25, 1.5, 2, 2.5], BIAS_IN_TXT = ['1', '1¼', '1½', '2', '2½'];
@@ -5914,7 +5927,7 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
     const cx = S.w / 2, cy = S.h / 2, L = Math.hypot(E.x1 - E.x0, E.y1 - E.y0) + 10;
     let t0 = Infinity, t1 = -Infinity;
     [[E.x0, E.y0], [E.x1, E.y0], [E.x1, E.y1], [E.x0, E.y1]].forEach(([x, y]) => { const t = (x - cx) * n[0] + (y - cy) * n[1]; t0 = Math.min(t0, t); t1 = Math.max(t1, t); });
-    g.save(); g.scale(K, K); g.strokeStyle = biasHex(); g.lineWidth = lw() * 1.3 * B.th; g.lineCap = 'butt';
+    g.save(); g.scale(K, K); g.strokeStyle = biasHex(); g.lineWidth = lw() * 1.3 * B.th; g.lineCap = 'butt'; g.globalAlpha = B.alpha;
     g.beginPath();
     for (let k = Math.ceil(t0 / w); k <= Math.floor(t1 / w); k++) {
       const px = cx + n[0] * k * w, py = cy + n[1] * k * w;
@@ -5924,11 +5937,11 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
   }
   function syncBias() {
     const btn = $('#tbBias'); btn.classList.toggle('on', B.on); btn.setAttribute('aria-pressed', String(B.on));
-    $$('#biasWidths [data-bw]').forEach(b => {
-      b.classList.toggle('on', String(B.w) === b.dataset.bw);
-      if (b.dataset.bw !== 'custom') { b.textContent = presetTxt(+b.dataset.bw); b.setAttribute('aria-label', presetTxt(+b.dataset.bw) + ' ' + B.unit); }
-    });
-    $$('#biasUnits [data-bu]').forEach(b => b.classList.toggle('on', B.unit === b.dataset.bu));
+    $('#biasWBtn').textContent = B.w === 'custom' ? 'Custom' : presetTxt(B.w);
+    $('#biasUBtn').textContent = UNAME[B.unit];
+    $('#biasAlpha').value = Math.round(B.alpha * 100); $('#biasAlphaVal').textContent = Math.round(B.alpha * 100) + '%';
+    $('#biasTh').value = B.th; $('#biasThVal').textContent = '×' + B.th;
+    syncColBtns();
     $('#biasCustomBox').classList.toggle('on', B.w === 'custom');
     const ci = $('#biasCustom'); ci.step = B.unit === 'mm' ? '1' : B.unit === 'cm' ? '0.1' : '0.125';
     if (document.activeElement !== ci) ci.value = fmtU(biasWidth());
@@ -5970,40 +5983,76 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
     } else { b.innerHTML = '<i></i>'; b.addEventListener('click', () => setBias({ col: k })); }
     $('#biasPal').append(b);
   });
-  $$('#biasWidths [data-bw]').forEach(b => b.addEventListener('click', () => {
-    const v = b.dataset.bw === 'custom' ? 'custom' : +b.dataset.bw;
-    setBias(v === 'custom' && B.w !== 'custom' ? { w: v, custom: Math.round(biasWidth() * 10) / 10 } : { w: v });
-    if (v === 'custom') { const i = $('#biasCustom'); i.focus(); i.select(); }
-  }));
+  // drop-down menus: widths, units and colours (one shared list menu; colours have their own palette pop-up)
+  var ddReady = false, ddOwner = null;
+  const ddMenu = $('#ddMenu');
+  function closeDD() { $$('.ddMenu').forEach(m => m.hidden = true); if (ddOwner) ddOwner.classList.remove('open'); ddOwner = null; }
+  function openDDAt(menu, btn) {
+    menu.hidden = false; btn.classList.add('open'); ddOwner = btn;
+    const r = btn.getBoundingClientRect(), pr = menu.getBoundingClientRect();
+    let y = r.bottom + 6; if (y + pr.height > innerHeight - 8) y = r.top - pr.height - 6;
+    menu.style.left = Math.max(8, Math.min(innerWidth - pr.width - 8, r.left)) + 'px'; menu.style.top = y + 'px';
+  }
+  function ddList(btn, items) {
+    btn.addEventListener('click', e => {
+      e.stopPropagation(); if (ddOwner === btn) { closeDD(); return; } closeDD();
+      ddMenu.textContent = '';
+      items().forEach(it => { const b = document.createElement('button'); b.type = 'button'; b.setAttribute('role', 'menuitemradio'); b.textContent = it.label; b.setAttribute('aria-pressed', String(!!it.on)); b.addEventListener('click', () => { closeDD(); it.fn(); }); ddMenu.append(b); });
+      openDDAt(ddMenu, btn);
+    });
+  }
+  function ddPanel(btn, menu) { btn.addEventListener('click', e => { e.stopPropagation(); const was = ddOwner === btn; closeDD(); if (!was) openDDAt(menu, btn); }); }
+  document.addEventListener('pointerdown', e => { if (ddOwner && !e.target.closest('.ddMenu') && !ddOwner.contains(e.target)) closeDD(); }, true);
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && ddOwner) { closeDD(); e.stopImmediatePropagation(); } }, true);
+  addEventListener('resize', closeDD);
+  const UNAME = { mm: 'MM', cm: 'CM', in: 'IN' };
+  const unitItems = (cur, set) => () => ['mm', 'cm', 'in'].map(u => ({ label: u === 'in' ? 'Inches' : u === 'cm' ? 'Centimetres' : 'Millimetres', on: cur() === u, fn: () => set(u) }));
+  ddList($('#biasWBtn'), () => [0, 1, 2, 3, 4].map(k => ({ label: presetTxt(k) + (B.unit === 'in' ? '' : ' ' + B.unit), on: B.w === k, fn: () => setBias({ w: k }) }))
+    .concat([{ label: 'Custom…', on: B.w === 'custom', fn: () => { setBias(B.w !== 'custom' ? { w: 'custom', custom: Math.round(biasWidth() * 10) / 10 } : {}); const i = $('#biasCustom'); i.focus(); i.select(); } }]));
+  ddList($('#biasUBtn'), unitItems(() => B.unit, u => setBias({ unit: u })));
+  ddPanel($('#biasColBtn'), $('#biasColMenu'));
+  $('#biasAlpha').addEventListener('input', e => setBias({ alpha: +e.target.value / 100 }));
+  $('#biasTh').addEventListener('input', e => setBias({ th: +e.target.value }));
+  function syncColBtns() {
+    if (!ddReady) return;
+    $('#gridColBtn i').style.background = rgb(P().grid);
+    $('#biasColBtn i').style.background = biasHex();
+  }
+  // grid: type the size, choose the unit
+  S.gridUnit = ['mm', 'cm', 'in'].includes(pget('pp_gridunit')) ? pget('pp_gridunit') : 'cm';
+  const gfmt = mm => String(+(mm / UF[S.gridUnit]).toFixed(S.gridUnit === 'mm' ? 1 : S.gridUnit === 'cm' ? 2 : 3));
+  function syncGridUI() {
+    if (!ddReady) return;
+    const gi = $('#gridSizeIn'); if (document.activeElement !== gi) gi.value = gfmt(S.gridSize);
+    gi.step = S.gridUnit === 'mm' ? '1' : S.gridUnit === 'cm' ? '0.5' : '0.25';
+    $('#gridUBtn').textContent = UNAME[S.gridUnit];
+  }
+  function setGridUnit(u) {
+    if (u === S.gridUnit) return;
+    // land on a tidy size in the new unit (5 cm becomes 2", 1" becomes 2.5 cm)
+    let mm = S.gridSize;
+    if (u === 'in') mm = Math.max(0.25, Math.round(mm / 25.4 * 4) / 4) * 25.4;
+    else if (S.gridUnit === 'in') mm = u === 'cm' ? Math.max(5, Math.round(mm / 5) * 5) : Math.max(1, Math.round(mm));
+    S.gridUnit = u; pset('pp_gridunit', u); setGridSize(mm);
+  }
+  ddList($('#gridUBtn'), unitItems(() => S.gridUnit, setGridUnit));
+  ddPanel($('#gridColBtn'), $('#gridColMenu'));
+  { const gi = $('#gridSizeIn');
+    const take = () => { const v = parseFloat(gi.value) * UF[S.gridUnit]; if (v >= 1 && v <= 500) { S.gridSize = v; pset('pp_grid', String(v)); drawGrid(); } };
+    gi.addEventListener('input', take);
+    gi.addEventListener('change', () => { take(); setGridSize(Math.max(1, Math.min(500, S.gridSize))); });
+    gi.addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'Enter' || e.key === 'Escape') gi.blur(); });
+    gi.addEventListener('blur', syncGridUI); }
+  // a swatch closes the colour pop-up; the colour wheel keeps it open while you pick
+  ['#gridColMenu', '#biasColMenu'].forEach(q => $(q).addEventListener('click', e => { const b = e.target.closest('button'); if (b && !b.classList.contains('wheel')) setTimeout(closeDD, 0); }));
+  ddReady = true;
   // the custom box takes the chosen unit; the width is kept in mm underneath (5 mm to 20 cm)
   $('#biasCustom').addEventListener('input', e => { const v = parseFloat(e.target.value) * UF[B.unit]; if (v >= 5 && v <= 200) setBias({ custom: v }); });
   $('#biasCustom').addEventListener('change', e => { const raw = parseFloat(e.target.value) * UF[B.unit]; const v = Math.max(5, Math.min(200, raw || B.custom)); setBias({ custom: v }); e.target.value = fmtU(v); });
-  $$('#biasUnits [data-bu]').forEach(b => b.addEventListener('click', () => setBias({ unit: b.dataset.bu })));
   $('#biasCustom').addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'Enter' || e.key === 'Escape') e.target.blur(); });
   $$('#biasDirs [data-bd]').forEach(b => b.addEventListener('click', () => setBias({ dir: b.dataset.bd })));
-  // thickness: the same picture button and pop-up as the line bar
-  { const wb = $('#biasWeight'), pop = $('#bwPop');
-    wb.innerHTML = '<svg width="26" height="18" aria-hidden="true"><line x1="3" y1="5" x2="23" y2="5" stroke="currentColor" stroke-width="1" stroke-linecap="round"/><line x1="3" y1="13" x2="23" y2="13" stroke="currentColor" stroke-width="3.4" stroke-linecap="round"/></svg>';
-    const open = () => {
-      pop.textContent = '';
-      [[0.6, 'Thin'], [1, 'Medium'], [1.7, 'Thick']].forEach(([k, name]) => {
-        const b = document.createElement('button'); b.type = 'button'; b.title = name; b.setAttribute('aria-label', name); b.setAttribute('aria-pressed', String(B.th === k));
-        b.innerHTML = `<svg width="34" height="14" aria-hidden="true"><line x1="4" y1="7" x2="30" y2="7" stroke="currentColor" stroke-width="${(k * 2.6).toFixed(1)}" stroke-linecap="round"/></svg>`;
-        b.addEventListener('click', () => { setBias({ th: k }); pop.hidden = true; });
-        pop.append(b);
-      });
-      pop.hidden = false;
-      const r = wb.getBoundingClientRect(), pr = pop.getBoundingClientRect();
-      let y = r.bottom + 6; if (y + pr.height > innerHeight - 8) y = r.top - pr.height - 6;
-      pop.style.left = Math.max(8, Math.min(innerWidth - pr.width - 8, r.left + r.width / 2 - pr.width / 2)) + 'px'; pop.style.top = y + 'px';
-    };
-    wb.addEventListener('click', e => { e.stopPropagation(); if (pop.hidden) open(); else pop.hidden = true; });
-    wb.addEventListener('contextmenu', e => { e.preventDefault(); open(); });
-    document.addEventListener('pointerdown', e => { if (!pop.hidden && !pop.contains(e.target) && !wb.contains(e.target)) pop.hidden = true; }, true);
-    document.addEventListener('keydown', e => { if (e.key === 'Escape' && !pop.hidden) { pop.hidden = true; e.stopImmediatePropagation(); } }, true);
-  }
   holdable($('#tbBias'), () => { setBias({ on: !B.on }); toast(B.on ? 'Bias strips on · width, direction and colour are in the bar at the top' : 'Bias strips off'); }, () => { if (!B.on) setBias({ on: true }); });
-  syncBias();
+  syncBias(); syncColBtns(); syncGridUI();
 
   /* ---------- rectangles and circles: closed lines with a size you can type ---------- */
   var shapesReady = false;
@@ -6044,7 +6093,7 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
     $('#shpTitle').textContent = kind === 'rect' ? 'Rectangle' : 'Circle';
     const put = (id, mm) => { const el = $(id); if (document.activeElement !== el && mm != null) el.value = fmtU(mm); el.step = B.unit === 'mm' ? '1' : B.unit === 'cm' ? '0.1' : '0.125'; };
     put('#shpW', src.w ?? SH.w); put('#shpH', src.h ?? SH.h); put('#shpR', src.r ?? SH.r); put('#shpC', (src.r ?? SH.r) * 2 * Math.PI);
-    $$('#shpUnits [data-bu]').forEach(b => b.classList.toggle('on', B.unit === b.dataset.bu));
+    $('#shpUBtn').textContent = UNAME[B.unit];
     $('#shpPlace').hidden = $('#shpPlaceSep').hidden = !!l;
     placeShapeBar();
   }
@@ -6086,7 +6135,7 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
     addLine(l); record(); drawLines(); syncLineBar(); syncShapeBar();
   });
   // one unit setting for bias strips and shapes
-  $$('#shpUnits [data-bu]').forEach(b => b.addEventListener('click', () => setBias({ unit: b.dataset.bu })));
+  ddList($('#shpUBtn'), unitItems(() => B.unit, u => setBias({ unit: u })));
   { const _sb = syncBias; syncBias = function () { _sb(); syncShapeBar(); }; }
   shapesReady = true;
   function syncGridBtn() { const b = $('#tbGrid'); b.classList.toggle('on', !!S.grid); b.setAttribute('aria-pressed', String(!!S.grid)); }
@@ -6705,7 +6754,7 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
       if (okHex(c.patHex)) S.patHex = c.patHex; if (okHex(c.gridHex)) S.gridHex = c.gridHex;
     }
   } catch {}
-  const savedGrid = +pget('pp_grid'); if (savedGrid === 10 || savedGrid === 50) S.gridSize = savedGrid;
+  const savedGrid = +pget('pp_grid'); if (savedGrid >= 1 && savedGrid <= 500) S.gridSize = savedGrid;
   renderSaved(); updateFoot();
   go('setup');
   setColours(); setGridSize(S.gridSize);
