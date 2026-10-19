@@ -483,8 +483,8 @@ body.bare #gridPop, body.bare #biasPop { display: none !important; }
 #bwPop[hidden] { display: none; }
 #biasCustomBox { display: none; align-items: center; gap: 4px; font-size: 9.5px; letter-spacing: .12em; color: var(--mute); }
 #biasCustomBox.on { display: flex; }
-#biasCustom { width: 52px; height: 30px; box-sizing: border-box; background: transparent; border: 1px solid var(--brass); color: var(--ink); font: 12px "IBM Plex Mono", monospace; text-align: right; padding: 0 6px; font-size: 16px; }
-#biasCustom::-webkit-inner-spin-button { opacity: .4; }
+#biasCustom { width: 72px; -moz-appearance: textfield; height: 30px; box-sizing: border-box; background: transparent; border: 1px solid var(--brass); color: var(--ink); font: 12px "IBM Plex Mono", monospace; text-align: right; padding: 0 6px; font-size: 16px; }
+#biasCustom::-webkit-inner-spin-button, #biasCustom::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
 #lineBar.bottom { top: auto; bottom: calc(14px + env(safe-area-inset-bottom, 0px)); }
 #lineBar.free { transform: translateX(-50%); bottom: auto !important; width: max-content; max-width: calc(100% - 16px); }
 #lineBar { padding-left: 4px !important; }
@@ -894,15 +894,20 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
 <div id="biasPop" hidden role="toolbar" aria-label="Bias strip options">
   <span class="gbLabel">Bias strips</span>
   <div class="seg" id="biasWidths" role="group" aria-label="Strip width">
-    <button class="btn" data-bw="25">25</button>
-    <button class="btn" data-bw="32">32</button>
-    <button class="btn" data-bw="38">38</button>
-    <button class="btn" data-bw="50">50</button>
-    <button class="btn" data-bw="64">64</button>
+    <button class="btn" data-bw="0"></button>
+    <button class="btn" data-bw="1"></button>
+    <button class="btn" data-bw="2"></button>
+    <button class="btn" data-bw="3"></button>
+    <button class="btn" data-bw="4"></button>
     <button class="btn" data-bw="custom" title="Your own width">Custom</button>
   </div>
-  <label id="biasCustomBox"><input type="number" id="biasCustom" min="5" max="200" step="1" inputmode="decimal" aria-label="Custom strip width in mm"><span>MM</span></label>
-  <span class="gbLabel" id="biasUnit" style="color:var(--mute)">MM</span>
+  <label id="biasCustomBox"><input type="number" id="biasCustom" step="any" inputmode="decimal" aria-label="Custom strip width"></label>
+  <span class="vsep"></span>
+  <div class="seg" id="biasUnits" role="group" aria-label="Units">
+    <button class="btn" data-bu="mm">MM</button>
+    <button class="btn" data-bu="cm">CM</button>
+    <button class="btn" data-bu="in">IN</button>
+  </div>
   <span class="vsep"></span>
   <div class="seg" id="biasDirs" role="group" aria-label="Strip direction">
     <button class="btn" data-bd="up" title="Bias, rising to the right" aria-label="Bias, rising to the right"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M2 12L12 2"/></svg></button>
@@ -5823,7 +5828,15 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
   B.on = false; // starts off each time; settings are remembered
   if (![0.6, 1, 1.7].includes(B.th)) B.th = 1; // same thin / medium / thick as drawn lines
   const saveBias = () => pset('pp_bias', JSON.stringify(B));
-  const biasWidth = () => B.w === 'custom' ? Math.max(5, Math.min(200, +B.custom || 45)) : B.w;
+  // standard widths: mm and cm share one set, inches have their own (1", 1¼", 1½", 2", 2½")
+  const BIAS_IN = [1, 1.25, 1.5, 2, 2.5], BIAS_IN_TXT = ['1', '1¼', '1½', '2', '2½'];
+  if (!['mm', 'cm', 'in'].includes(B.unit)) B.unit = 'mm';
+  if (B.w !== 'custom' && !(B.w >= 0 && B.w <= 4 && B.w % 1 === 0)) { const k = BIAS_W.indexOf(+B.w); B.w = k >= 0 ? k : 2; } // older saves held mm
+  const UF = { mm: 1, cm: 10, in: 25.4 };
+  const presetMM = k => B.unit === 'in' ? BIAS_IN[k] * 25.4 : BIAS_W[k];
+  const presetTxt = k => B.unit === 'in' ? BIAS_IN_TXT[k] + '"' : B.unit === 'cm' ? String(BIAS_W[k] / 10) : String(BIAS_W[k]);
+  const fmtU = mm => { const v = mm / UF[B.unit]; return String(+v.toFixed(B.unit === 'mm' ? 1 : B.unit === 'cm' ? 2 : 3)); };
+  const biasWidth = () => B.w === 'custom' ? Math.max(5, Math.min(200, +B.custom || 45)) : presetMM(B.w);
   function biasHex() {
     let k = B.col;
     if (k === 'custom') return B.hex || NEON;
@@ -5853,9 +5866,14 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
   }
   function syncBias() {
     const btn = $('#tbBias'); btn.classList.toggle('on', B.on); btn.setAttribute('aria-pressed', String(B.on));
-    $$('#biasWidths [data-bw]').forEach(b => b.classList.toggle('on', String(B.w) === b.dataset.bw));
-    $('#biasCustomBox').classList.toggle('on', B.w === 'custom'); $('#biasUnit').hidden = B.w === 'custom';
-    if (document.activeElement !== $('#biasCustom')) $('#biasCustom').value = B.custom;
+    $$('#biasWidths [data-bw]').forEach(b => {
+      b.classList.toggle('on', String(B.w) === b.dataset.bw);
+      if (b.dataset.bw !== 'custom') { b.textContent = presetTxt(+b.dataset.bw); b.setAttribute('aria-label', presetTxt(+b.dataset.bw) + ' ' + B.unit); }
+    });
+    $$('#biasUnits [data-bu]').forEach(b => b.classList.toggle('on', B.unit === b.dataset.bu));
+    $('#biasCustomBox').classList.toggle('on', B.w === 'custom');
+    const ci = $('#biasCustom'); ci.step = B.unit === 'mm' ? '1' : B.unit === 'cm' ? '0.1' : '0.125';
+    if (document.activeElement !== ci) ci.value = fmtU(biasWidth());
     $$('#biasDirs [data-bd]').forEach(b => b.classList.toggle('on', B.dir === b.dataset.bd));
     $$('#biasPal button').forEach(b => {
       b.setAttribute('aria-pressed', String(b.dataset.c === B.col));
@@ -5895,11 +5913,14 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
     $('#biasPal').append(b);
   });
   $$('#biasWidths [data-bw]').forEach(b => b.addEventListener('click', () => {
-    const v = b.dataset.bw === 'custom' ? 'custom' : +b.dataset.bw; setBias({ w: v });
+    const v = b.dataset.bw === 'custom' ? 'custom' : +b.dataset.bw;
+    setBias(v === 'custom' && B.w !== 'custom' ? { w: v, custom: Math.round(biasWidth() * 10) / 10 } : { w: v });
     if (v === 'custom') { const i = $('#biasCustom'); i.focus(); i.select(); }
   }));
-  $('#biasCustom').addEventListener('input', e => { const v = parseFloat(e.target.value); if (v >= 5 && v <= 200) setBias({ custom: v }); });
-  $('#biasCustom').addEventListener('change', e => { const v = Math.max(5, Math.min(200, parseFloat(e.target.value) || B.custom)); e.target.value = v; setBias({ custom: v }); });
+  // the custom box takes the chosen unit; the width is kept in mm underneath (5 mm to 20 cm)
+  $('#biasCustom').addEventListener('input', e => { const v = parseFloat(e.target.value) * UF[B.unit]; if (v >= 5 && v <= 200) setBias({ custom: v }); });
+  $('#biasCustom').addEventListener('change', e => { const raw = parseFloat(e.target.value) * UF[B.unit]; const v = Math.max(5, Math.min(200, raw || B.custom)); setBias({ custom: v }); e.target.value = fmtU(v); });
+  $$('#biasUnits [data-bu]').forEach(b => b.addEventListener('click', () => setBias({ unit: b.dataset.bu })));
   $('#biasCustom').addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'Enter' || e.key === 'Escape') e.target.blur(); });
   $$('#biasDirs [data-bd]').forEach(b => b.addEventListener('click', () => setBias({ dir: b.dataset.bd })));
   // thickness: the same picture button and pop-up as the line bar
