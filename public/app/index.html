@@ -255,10 +255,10 @@ input.serif { font-family: var(--serif); font-style: italic; font-size: 18px; }
 #lineBar .dashseg, #lineBar .wseg, #lineBar .vsep.styleSep { display: none !important; }
 #lineBar .ib:disabled { opacity: .3; cursor: not-allowed; }
 #lineBar .ib.lsbtn { width: 44px; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; color: var(--ink); }
-#lsPop { position: fixed; z-index: 9; display: flex; gap: 4px; padding: 6px; background: var(--panel); border: 1px solid var(--line); box-shadow: 0 10px 40px rgba(0,0,0,.55); }
-#lsPop button { width: 56px; height: 40px; border: 1px solid transparent; background: transparent; color: var(--ink); cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0; }
-#lsPop button:hover { background: var(--raise); }
-#lsPop button[aria-pressed="true"] { border-color: var(--brass); color: var(--brass); }
+#bwPop, #lsPop { position: fixed; z-index: 9; display: flex; gap: 4px; padding: 6px; background: var(--panel); border: 1px solid var(--line); box-shadow: 0 10px 40px rgba(0,0,0,.55); }
+#bwPop button, #lsPop button { width: 56px; height: 40px; border: 1px solid transparent; background: transparent; color: var(--ink); cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0; }
+#bwPop button:hover, #lsPop button:hover { background: var(--raise); }
+#bwPop button[aria-pressed="true"], #lsPop button[aria-pressed="true"] { border-color: var(--brass); color: var(--brass); }
 .bigtri .btn { height: 58px; flex-direction: column; gap: 5px; padding: 0 4px; font-size: 9.5px; letter-spacing: .1em; line-height: 1.2; text-align: center; }
 .bigtri .btn.on { background: transparent; color: var(--brass); border-color: var(--brass); }
 .patrow #resetPattern { flex: 1; min-width: 0; }
@@ -479,6 +479,8 @@ body.bare #gridPop, body.bare #biasPop { display: none !important; }
 #biasPop .bpal button[aria-pressed="true"] { border-color: var(--brass); box-shadow: inset 0 0 0 1px var(--brass); }
 #biasPop .bpal button:disabled { opacity: .25; cursor: not-allowed; }
 #biasPop .seg .btn svg { display: block; }
+#biasPop .ib.lsbtn { width: 44px; height: 30px; border: 1px solid var(--line); background: transparent; color: var(--ink); cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+#bwPop[hidden] { display: none; }
 #biasCustomBox { display: none; align-items: center; gap: 4px; font-size: 9.5px; letter-spacing: .12em; color: var(--mute); }
 #biasCustomBox.on { display: flex; }
 #biasCustom { width: 52px; height: 30px; box-sizing: border-box; background: transparent; border: 1px solid var(--brass); color: var(--ink); font: 12px "IBM Plex Mono", monospace; text-align: right; padding: 0 6px; font-size: 16px; }
@@ -908,11 +910,7 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
     <button class="btn" data-bd="grain" title="Straight strips, along the mat" aria-label="Straight strips"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M7 1.5v11"/></svg></button>
   </div>
   <span class="vsep"></span>
-  <div class="seg" id="biasThick" role="group" aria-label="Line thickness">
-    <button class="btn" data-bt="1">Thin</button>
-    <button class="btn" data-bt="2">Medium</button>
-    <button class="btn" data-bt="3.5">Thick</button>
-  </div>
+  <button class="ib lsbtn" id="biasWeight" aria-haspopup="true" title="Line thickness: thin, medium or thick" aria-label="Line thickness"></button>
   <span class="vsep"></span>
   <div class="bpal" id="biasPal" role="group" aria-label="Strip line colour"></div>
 </div>
@@ -983,6 +981,7 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
 </div>
 
 <div id="lsPop" hidden role="dialog" aria-label="Line style"></div>
+<div id="bwPop" hidden role="dialog" aria-label="Bias strip line thickness"></div>
 <div id="groupBar" hidden role="toolbar" aria-label="Make a group">
   <span id="groupMsg">Tap lines and marks to group</span>
   <button class="btn slim" id="groupCancel">Cancel</button>
@@ -4146,6 +4145,7 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
     const cw = pdfC.width, ch = pdfC.height;
     patWrap.style.width = cw + 'px'; patWrap.style.height = ch + 'px';
     patWrap.style.transform = `translate(${S.pc.x * K}px, ${S.pc.y * K}px) rotate(${S.rot}deg) scale(${S.flip ? -1 : 1}, 1) translate(${-cw / 2}px, ${-ch / 2}px)`;
+    if (B && B.on && B.drawnRot !== S.rot) { B.drawnRot = S.rot; drawBias(); }
     $('#rotRange').value = S.rot; { const rv = $('#rotVal'); if (document.activeElement !== rv) rv.value = S.rot.toFixed(1); }
     if (S.lines.some(l => l.pinned)) { syncPinned(); drawLines(); }
     updateMirror();
@@ -5818,9 +5818,10 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
 
   /* ---------- bias strips: evenly spaced lines across the mat to cut bias tape with a roller ---------- */
   const BIAS_W = [25, 32, 38, 50, 64];
-  const biasC = $('#biasCanvas');
-  const B = Object.assign({ on: false, w: 38, custom: 45, dir: 'up', th: 1, col: 'red', hex: '' }, (() => { try { return JSON.parse(pget('pp_bias') || '{}'); } catch (e) { return {}; } })());
+  var biasC = $('#biasCanvas');
+  var B = Object.assign({ on: false, w: 38, custom: 45, dir: 'up', th: 1, col: 'red', hex: '' }, (() => { try { return JSON.parse(pget('pp_bias') || '{}'); } catch (e) { return {}; } })());
   B.on = false; // starts off each time; settings are remembered
+  if (![0.6, 1, 1.7].includes(B.th)) B.th = 1; // same thin / medium / thick as drawn lines
   const saveBias = () => pset('pp_bias', JSON.stringify(B));
   const biasWidth = () => B.w === 'custom' ? Math.max(5, Math.min(200, +B.custom || 45)) : B.w;
   function biasHex() {
@@ -5831,15 +5832,18 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
     return colHex(k);
   }
   function drawBias() {
+    if (!B || !biasC) return;
     const E = screenExt(), g = sizeCanvasExt(biasC, E);
     if (!(B.on && S.step === 'project') || document.body.classList.contains('phone')) return;
     const w = biasWidth(), s2 = Math.SQRT1_2;
     // d = along the strips, n = across them; spacing is measured straight across, so it's the true cut width
-    const d = B.dir === 'grain' ? [0, 1] : B.dir === 'down' ? [s2, s2] : [s2, -s2], n = [-d[1], d[0]];
+    // they turn with the rotation slider (and Turn 90° / Level 0°), round the middle of the mat
+    const base = B.dir === 'grain' ? 90 : B.dir === 'down' ? 45 : -45, a = rad(base + (S.rot || 0));
+    const d = [Math.cos(a), Math.sin(a)], n = [-d[1], d[0]];
     const cx = S.w / 2, cy = S.h / 2, L = Math.hypot(E.x1 - E.x0, E.y1 - E.y0) + 10;
     let t0 = Infinity, t1 = -Infinity;
     [[E.x0, E.y0], [E.x1, E.y0], [E.x1, E.y1], [E.x0, E.y1]].forEach(([x, y]) => { const t = (x - cx) * n[0] + (y - cy) * n[1]; t0 = Math.min(t0, t); t1 = Math.max(t1, t); });
-    g.save(); g.scale(K, K); g.strokeStyle = biasHex(); g.lineWidth = lw() * B.th; g.lineCap = 'butt';
+    g.save(); g.scale(K, K); g.strokeStyle = biasHex(); g.lineWidth = lw() * 1.3 * B.th; g.lineCap = 'butt';
     g.beginPath();
     for (let k = Math.ceil(t0 / w); k <= Math.floor(t1 / w); k++) {
       const px = cx + n[0] * k * w, py = cy + n[1] * k * w;
@@ -5853,7 +5857,6 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
     $('#biasCustomBox').classList.toggle('on', B.w === 'custom'); $('#biasUnit').hidden = B.w === 'custom';
     if (document.activeElement !== $('#biasCustom')) $('#biasCustom').value = B.custom;
     $$('#biasDirs [data-bd]').forEach(b => b.classList.toggle('on', B.dir === b.dataset.bd));
-    $$('#biasThick [data-bt]').forEach(b => b.classList.toggle('on', B.th === +b.dataset.bt));
     $$('#biasPal button').forEach(b => {
       b.setAttribute('aria-pressed', String(b.dataset.c === B.col));
       if (b.dataset.c === 'custom') { b.querySelector('input').value = B.hex || NEON; return; }
@@ -5861,7 +5864,7 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
       b.disabled = (S.bg === 'black' && b.dataset.c === 'black') || (S.bg === 'white' && b.dataset.c === 'white');
     });
   }
-  function setBias(ch) { Object.assign(B, ch || {}); saveBias(); syncBias(); drawBias(); placeGridBar(); }
+  function setBias(ch) { Object.assign(B, ch || {}); B.drawnRot = S.rot; const { drawnRot, ...keep } = B; pset('pp_bias', JSON.stringify(keep)); syncBias(); drawBias(); placeGridBar(); }
   function placeBiasBar() {
     const bb = document.getElementById('biasPop'); if (!bb) return;
     bb.hidden = !(S.step === 'project' && B.on);
@@ -5899,7 +5902,27 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
   $('#biasCustom').addEventListener('change', e => { const v = Math.max(5, Math.min(200, parseFloat(e.target.value) || B.custom)); e.target.value = v; setBias({ custom: v }); });
   $('#biasCustom').addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'Enter' || e.key === 'Escape') e.target.blur(); });
   $$('#biasDirs [data-bd]').forEach(b => b.addEventListener('click', () => setBias({ dir: b.dataset.bd })));
-  $$('#biasThick [data-bt]').forEach(b => b.addEventListener('click', () => setBias({ th: +b.dataset.bt })));
+  // thickness: the same picture button and pop-up as the line bar
+  { const wb = $('#biasWeight'), pop = $('#bwPop');
+    wb.innerHTML = '<svg width="26" height="18" aria-hidden="true"><line x1="3" y1="5" x2="23" y2="5" stroke="currentColor" stroke-width="1" stroke-linecap="round"/><line x1="3" y1="13" x2="23" y2="13" stroke="currentColor" stroke-width="3.4" stroke-linecap="round"/></svg>';
+    const open = () => {
+      pop.textContent = '';
+      [[0.6, 'Thin'], [1, 'Medium'], [1.7, 'Thick']].forEach(([k, name]) => {
+        const b = document.createElement('button'); b.type = 'button'; b.title = name; b.setAttribute('aria-label', name); b.setAttribute('aria-pressed', String(B.th === k));
+        b.innerHTML = `<svg width="34" height="14" aria-hidden="true"><line x1="4" y1="7" x2="30" y2="7" stroke="currentColor" stroke-width="${(k * 2.6).toFixed(1)}" stroke-linecap="round"/></svg>`;
+        b.addEventListener('click', () => { setBias({ th: k }); pop.hidden = true; });
+        pop.append(b);
+      });
+      pop.hidden = false;
+      const r = wb.getBoundingClientRect(), pr = pop.getBoundingClientRect();
+      let y = r.bottom + 6; if (y + pr.height > innerHeight - 8) y = r.top - pr.height - 6;
+      pop.style.left = Math.max(8, Math.min(innerWidth - pr.width - 8, r.left + r.width / 2 - pr.width / 2)) + 'px'; pop.style.top = y + 'px';
+    };
+    wb.addEventListener('click', e => { e.stopPropagation(); if (pop.hidden) open(); else pop.hidden = true; });
+    wb.addEventListener('contextmenu', e => { e.preventDefault(); open(); });
+    document.addEventListener('pointerdown', e => { if (!pop.hidden && !pop.contains(e.target) && !wb.contains(e.target)) pop.hidden = true; }, true);
+    document.addEventListener('keydown', e => { if (e.key === 'Escape' && !pop.hidden) { pop.hidden = true; e.stopImmediatePropagation(); } }, true);
+  }
   holdable($('#tbBias'), () => { setBias({ on: !B.on }); toast(B.on ? 'Bias strips on · width, direction and colour are in the bar at the top' : 'Bias strips off'); }, () => { if (!B.on) setBias({ on: true }); });
   syncBias();
   function syncGridBtn() { const b = $('#tbGrid'); b.classList.toggle('on', !!S.grid); b.setAttribute('aria-pressed', String(!!S.grid)); }
