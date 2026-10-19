@@ -771,11 +771,11 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
     </details>
 
     <details class="fold" data-fold="lines" open>
-      <summary>Lines and marks <span class="count" id="lineCount"></span></summary>
+      <summary>Objects <span class="count" id="lineCount"></span></summary>
       <div class="body">
         <div class="row2" id="lineGlobal" hidden>
-          <button class="btn slim toggle" id="labelsBtn" aria-pressed="false" title="Show or hide the names of all lines and marks">Show all labels</button>
-          <button class="btn slim" id="groupStart" title="Pick lines and marks to move and turn together">Group…</button>
+          <button class="btn slim toggle" id="labelsBtn" aria-pressed="false" title="Show or hide the names of all objects">Show all labels</button>
+          <button class="btn slim" id="groupStart" title="Pick objects to move and turn together">Group…</button>
         </div>
         <p class="note" id="lineEmpty">Draw with the line and freehand tools in the toolbox. Your lines appear here to name, pin and extend.</p>
         <div id="lineList" class="group" style="gap:6px"></div>
@@ -1022,7 +1022,7 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
 <div id="lsPop" hidden role="dialog" aria-label="Line style"></div>
 <div id="bwPop" hidden role="dialog" aria-label="Bias strip line thickness"></div>
 <div id="groupBar" hidden role="toolbar" aria-label="Make a group">
-  <span id="groupMsg">Tap lines and marks to group</span>
+  <span id="groupMsg">Tap objects to group</span>
   <button class="btn slim" id="groupCancel">Cancel</button>
   <button class="btn slim" id="groupDone">Group</button>
 </div>
@@ -5370,7 +5370,7 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
   }
   function syncGroupBar() {
     const n = S.pick ? S.pick.size : 0;
-    $('#groupMsg').textContent = n ? n + (n === 1 ? ' picked · tap more' : ' picked') : 'Tap lines and marks to group';
+    $('#groupMsg').textContent = n ? n + (n === 1 ? ' picked · tap more' : ' picked') : 'Tap objects to group';
     $('#groupDone').disabled = n < 2;
   }
   function startPick(first) {
