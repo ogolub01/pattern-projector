@@ -38,7 +38,7 @@ button, input { font: inherit; color: inherit; }
 /* v130: keep the pattern on its own fixed drawing layers, and the controls on theirs, so showing or hiding
    the controls (H) never makes the browser redraw the pattern differently */
 #patWrap, #mirWrap, #mat canvas { will-change: transform; backface-visibility: hidden; }
-#panel, #toolbox, #lineBar, #gridPop, #movePadBox, #reveal, #hHint, #toast, #pivotMark { will-change: transform; }
+#panel, #toolbox, #lineBar, #gridPop, #biasPop, #movePadBox, #reveal, #hHint, #toast, #pivotMark { will-change: transform; }
 .clipbox { position: absolute; left: 0; top: 0; width: 1px; height: 1px; overflow: visible; }
 
 .handle { position: absolute; width: 32px; height: 32px; margin: -16px 0 0 -16px; border-radius: 50%; border: 2px solid var(--danger); background: transparent; color: var(--danger); display: flex; align-items: center; justify-content: center; font-size: 13px; cursor: move; touch-action: none; user-select: none; }
@@ -390,7 +390,7 @@ input.dup, .prow input.dup, .pwTile input.dup { color: var(--danger) !important;
 .calsteps .btn.on { background: transparent; color: var(--brass); border-color: var(--brass); }
 .calsec { gap: 14px; }
 .calsec h2 { margin: 0; }
-#tbGrid, #tbRuler, #dockBtn { -webkit-user-select: none; -webkit-touch-callout: none; }
+#tbGrid, #tbBias, #tbRuler, #dockBtn { -webkit-user-select: none; -webkit-touch-callout: none; }
 #dockBtn { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
 .hsep { width: 1px; height: 24px; background: var(--line); margin: 0 2px; }
 .ph .brand .eyebrow { white-space: normal; overflow: hidden; align-items: flex-start; line-height: 1.35; }
@@ -461,16 +461,28 @@ input.dup, .prow input.dup, .pwTile input.dup { color: var(--danger) !important;
 #lineBar { width: max-content; cursor: grab; touch-action: none; }
 #lineBar button { cursor: pointer; }
 .lbgrip { width: 26px !important; }
-#gridPop { position: fixed; z-index: 6; left: 50%; top: calc(56px + env(safe-area-inset-top, 0px)); transform: translateX(-50%); width: max-content; max-width: calc(100% - 32px); display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 10px; padding: 7px 12px; background: var(--panel); border: 1px solid var(--line); box-shadow: 0 10px 40px rgba(0,0,0,.45); }
-#gridPop[hidden] { display: none !important; }
-#gridPop .gbLabel { font-size: 9.5px; letter-spacing: .16em; text-transform: uppercase; color: var(--brass); }
-#gridPop .seg .btn { height: 30px; padding: 0 9px; font-size: 10px; flex: none; }
-#gridPop .pal { display: flex; gap: 4px; }
-#gridPop .pal button { width: 28px; height: 28px; }
-#gridPop .gbRange { display: flex; align-items: center; gap: 8px; font-size: 9.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--mute); }
-#gridPop .gbRange input { width: 110px; }
-#gridPop .gbRange output { font-size: 11px; color: var(--ink); min-width: 34px; font-variant-numeric: tabular-nums; letter-spacing: 0; }
-body.bare #gridPop { display: none !important; }
+#gridPop , #biasPop { position: fixed; z-index: 6; left: 50%; top: calc(56px + env(safe-area-inset-top, 0px)); transform: translateX(-50%); width: max-content; max-width: calc(100% - 32px); display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 10px; padding: 7px 12px; background: var(--panel); border: 1px solid var(--line); box-shadow: 0 10px 40px rgba(0,0,0,.45); }
+#gridPop[hidden] , #biasPop[hidden] { display: none !important; }
+#gridPop .gbLabel , #biasPop .gbLabel { font-size: 9.5px; letter-spacing: .16em; text-transform: uppercase; color: var(--brass); }
+#gridPop .seg .btn , #biasPop .seg .btn { height: 30px; padding: 0 9px; font-size: 10px; flex: none; }
+#gridPop .pal , #biasPop .pal { display: flex; gap: 4px; }
+#gridPop .pal button , #biasPop .pal button { width: 28px; height: 28px; }
+#gridPop .gbRange , #biasPop .gbRange { display: flex; align-items: center; gap: 8px; font-size: 9.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--mute); }
+#gridPop .gbRange input , #biasPop .gbRange input { width: 110px; }
+#gridPop .gbRange output , #biasPop .gbRange output { font-size: 11px; color: var(--ink); min-width: 34px; font-variant-numeric: tabular-nums; letter-spacing: 0; }
+body.bare #gridPop, body.bare #biasPop { display: none !important; }
+#biasPop .bpal { display: flex; gap: 4px; }
+#biasPop .bpal button { width: 28px; height: 28px; border: 1px solid var(--line); background: transparent; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0; position: relative; overflow: hidden; }
+#biasPop .bpal button i { width: 16px; height: 16px; border-radius: 50%; background: var(--c); display: block; border: 1px solid #555; }
+#biasPop .bpal button.wheel i { background: conic-gradient(#000000, #FF6B5E, #C9A24B, #FFFFFF, #000000) !important; }
+#biasPop .bpal button.wheel input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; border: 0; padding: 0; }
+#biasPop .bpal button[aria-pressed="true"] { border-color: var(--brass); box-shadow: inset 0 0 0 1px var(--brass); }
+#biasPop .bpal button:disabled { opacity: .25; cursor: not-allowed; }
+#biasPop .seg .btn svg { display: block; }
+#biasCustomBox { display: none; align-items: center; gap: 4px; font-size: 9.5px; letter-spacing: .12em; color: var(--mute); }
+#biasCustomBox.on { display: flex; }
+#biasCustom { width: 52px; height: 30px; box-sizing: border-box; background: transparent; border: 1px solid var(--brass); color: var(--ink); font: 12px "IBM Plex Mono", monospace; text-align: right; padding: 0 6px; font-size: 16px; }
+#biasCustom::-webkit-inner-spin-button { opacity: .4; }
 #lineBar.bottom { top: auto; bottom: calc(14px + env(safe-area-inset-bottom, 0px)); }
 #lineBar.free { transform: translateX(-50%); bottom: auto !important; width: max-content; max-width: calc(100% - 16px); }
 #lineBar { padding-left: 4px !important; }
@@ -531,7 +543,7 @@ body.bare #gridPop { display: none !important; }
 
 /* ---------- phone (v136): just the mat, the corners, the mat size and Open PDF ---------- */
 #phoneBar, #phoneHint, #pbSheet { display: none; }
-body.phone #panel, body.phone #toolbox, body.phone #lineBar, body.phone #gridPop, body.phone #movePadBox,
+body.phone #panel, body.phone #toolbox, body.phone #lineBar, body.phone #gridPop, body.phone #biasPop, body.phone #movePadBox,
 body.phone #reveal, body.phone #hHint, body.phone #fine, body.phone #unzoom { display: none !important; }
 html.phone, body.phone { position: fixed; inset: 0; width: 100%; height: 100%; overflow: hidden; overscroll-behavior: none; touch-action: none; }
 body.phone #pbSheet input { font-size: 16px; }
@@ -562,6 +574,7 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
     <div id="patClip" class="clipbox"><div id="patWrap"><canvas id="pdfCanvas"></canvas><canvas id="pieceCanvas"></canvas></div></div>
     <div id="mirClip" class="clipbox" hidden><div id="mirWrap"><canvas id="mirPdf"></canvas><canvas id="mirPiece"></canvas></div></div>
     <canvas id="gridCanvas"></canvas>
+    <canvas id="biasCanvas"></canvas>
     <canvas id="testCanvas"></canvas>
     <canvas id="lineCanvas"></canvas>
   </div>
@@ -808,6 +821,7 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
   <button class="tool" id="tbRuler" hidden aria-pressed="false" title="Ruler: draw a measured line · hold: straight or freehand, cm or inches" aria-label="Ruler (hold for options)" aria-haspopup="menu"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M3 16L16 3l5 5L8 21z"/><path d="M7 12l2 2M10 9l2 2M13 6l2 2"/></svg></button>
   <button class="tool on" id="tbSnap" aria-pressed="true" title="Snap to pattern lines and corners (N)" aria-label="Snap to pattern"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 3v9a6 6 0 0 0 12 0V3h-4v9a2 2 0 0 1-4 0V3z"/><path d="M6 7h4M14 7h4"/></svg></button>
   <button class="tool" id="tbGrid" aria-pressed="false" title="Show or hide the grid (G)" aria-label="Grid"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="4" y="4" width="16" height="16"/><path d="M9.3 4v16M14.7 4v16M4 9.3h16M4 14.7h16"/></svg></button>
+  <button class="tool" id="tbBias" aria-pressed="false" title="Bias strips (T): lines to cut bias tape along" aria-label="Bias strips"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M4 12L12 4M4 18L18 4M6 20L20 6M12 20L20 12"/></svg></button>
   <button class="tool" id="tbTheme" title="Tap: light / dark / custom · hold: choose or customise colours" aria-label="Colour theme (tap to switch, hold for options)" aria-haspopup="menu"><i id="themeDot"></i></button>
   <button class="tool" id="tbQuiet" title="Quiet (Q): black screen while you cut and mark · tap anywhere to bring it back" aria-label="Quiet: black screen"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M19.5 14.5A8 8 0 0 1 9.5 4.5a8 8 0 1 0 10 10z"/></svg></button>
   <span class="tsep"></span>
@@ -873,6 +887,34 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
   <label class="gbRange" title="Brightness"><span>Brightness</span><input type="range" id="gridAlpha" min="10" max="100" step="5" value="60" aria-label="Grid brightness"><output id="gridAlphaVal">60%</output></label>
   <label class="gbRange" title="Thickness"><span>Thickness</span><input type="range" id="gridW" min="0.5" max="3" step="0.25" value="1" aria-label="Grid line thickness"><output id="gridWVal">×1</output></label>
   <input type="checkbox" id="gridChk" hidden>
+</div>
+
+<div id="biasPop" hidden role="toolbar" aria-label="Bias strip options">
+  <span class="gbLabel">Bias strips</span>
+  <div class="seg" id="biasWidths" role="group" aria-label="Strip width">
+    <button class="btn" data-bw="25">25</button>
+    <button class="btn" data-bw="32">32</button>
+    <button class="btn" data-bw="38">38</button>
+    <button class="btn" data-bw="50">50</button>
+    <button class="btn" data-bw="64">64</button>
+    <button class="btn" data-bw="custom" title="Your own width">Custom</button>
+  </div>
+  <label id="biasCustomBox"><input type="number" id="biasCustom" min="5" max="200" step="1" inputmode="decimal" aria-label="Custom strip width in mm"><span>MM</span></label>
+  <span class="gbLabel" id="biasUnit" style="color:var(--mute)">MM</span>
+  <span class="vsep"></span>
+  <div class="seg" id="biasDirs" role="group" aria-label="Strip direction">
+    <button class="btn" data-bd="up" title="Bias, rising to the right" aria-label="Bias, rising to the right"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M2 12L12 2"/></svg></button>
+    <button class="btn" data-bd="down" title="Bias, falling to the right" aria-label="Bias, falling to the right"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M2 2L12 12"/></svg></button>
+    <button class="btn" data-bd="grain" title="Straight strips, along the mat" aria-label="Straight strips"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M7 1.5v11"/></svg></button>
+  </div>
+  <span class="vsep"></span>
+  <div class="seg" id="biasThick" role="group" aria-label="Line thickness">
+    <button class="btn" data-bt="1">Thin</button>
+    <button class="btn" data-bt="2">Medium</button>
+    <button class="btn" data-bt="3.5">Thick</button>
+  </div>
+  <span class="vsep"></span>
+  <div class="bpal" id="biasPal" role="group" aria-label="Strip line colour"></div>
 </div>
 
 <div id="lineBar" hidden role="toolbar" aria-label="Line colour and style">
@@ -1325,6 +1367,7 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
   }
 
   function drawGrid() {
+    drawBias();
     const E = screenExt(), g = sizeCanvasExt(gridC, E), gw = S.step === 'project' ? (S.gridW || 1) : 1;
     const calib = S.step === 'setup' || S.step === 'corners';
     const show = calib || (S.step === 'project' && S.grid);
@@ -5761,7 +5804,8 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
   $('#layersNone').addEventListener('click', () => setLayers(() => false));
   function setGrid(on) { S.grid = on; $('#gridChk').checked = on; syncGridBtn(); drawGrid(); record(); placeGridBar(); }
   // grid options sit in a bar at the top while the grid is on (under the line bar when both are showing)
-  function placeGridBar() {
+  function placeGridBar() { placeGridBar0(); placeBiasBar(); }
+  function placeGridBar0() {
     const gb = document.getElementById('gridPop'); if (!gb) return;
     gb.hidden = !(S.step === 'project' && S.grid);
     if (gb.hidden) return;
@@ -5771,6 +5815,93 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
     gb.style.top = lr && !lb.classList.contains('bottom') && lr.top < gTop + 50 && lr.bottom > gTop - 4 ? (lr.bottom + 8) + 'px' : '';
   }
   addEventListener('resize', () => requestAnimationFrame(placeGridBar));
+
+  /* ---------- bias strips: evenly spaced lines across the mat to cut bias tape with a roller ---------- */
+  const BIAS_W = [25, 32, 38, 50, 64];
+  const biasC = $('#biasCanvas');
+  const B = Object.assign({ on: false, w: 38, custom: 45, dir: 'up', th: 1, col: 'red', hex: '' }, (() => { try { return JSON.parse(pget('pp_bias') || '{}'); } catch (e) { return {}; } })());
+  B.on = false; // starts off each time; settings are remembered
+  const saveBias = () => pset('pp_bias', JSON.stringify(B));
+  const biasWidth = () => B.w === 'custom' ? Math.max(5, Math.min(200, +B.custom || 45)) : B.w;
+  function biasHex() {
+    let k = B.col;
+    if (k === 'custom') return B.hex || NEON;
+    if (S.bg === 'black' && k === 'black') k = 'white';
+    if (S.bg === 'white' && k === 'white') k = 'black';
+    return colHex(k);
+  }
+  function drawBias() {
+    const E = screenExt(), g = sizeCanvasExt(biasC, E);
+    if (!(B.on && S.step === 'project') || document.body.classList.contains('phone')) return;
+    const w = biasWidth(), s2 = Math.SQRT1_2;
+    // d = along the strips, n = across them; spacing is measured straight across, so it's the true cut width
+    const d = B.dir === 'grain' ? [0, 1] : B.dir === 'down' ? [s2, s2] : [s2, -s2], n = [-d[1], d[0]];
+    const cx = S.w / 2, cy = S.h / 2, L = Math.hypot(E.x1 - E.x0, E.y1 - E.y0) + 10;
+    let t0 = Infinity, t1 = -Infinity;
+    [[E.x0, E.y0], [E.x1, E.y0], [E.x1, E.y1], [E.x0, E.y1]].forEach(([x, y]) => { const t = (x - cx) * n[0] + (y - cy) * n[1]; t0 = Math.min(t0, t); t1 = Math.max(t1, t); });
+    g.save(); g.scale(K, K); g.strokeStyle = biasHex(); g.lineWidth = lw() * B.th; g.lineCap = 'butt';
+    g.beginPath();
+    for (let k = Math.ceil(t0 / w); k <= Math.floor(t1 / w); k++) {
+      const px = cx + n[0] * k * w, py = cy + n[1] * k * w;
+      g.moveTo(px - d[0] * L, py - d[1] * L); g.lineTo(px + d[0] * L, py + d[1] * L);
+    }
+    g.stroke(); g.restore();
+  }
+  function syncBias() {
+    const btn = $('#tbBias'); btn.classList.toggle('on', B.on); btn.setAttribute('aria-pressed', String(B.on));
+    $$('#biasWidths [data-bw]').forEach(b => b.classList.toggle('on', String(B.w) === b.dataset.bw));
+    $('#biasCustomBox').classList.toggle('on', B.w === 'custom'); $('#biasUnit').hidden = B.w === 'custom';
+    if (document.activeElement !== $('#biasCustom')) $('#biasCustom').value = B.custom;
+    $$('#biasDirs [data-bd]').forEach(b => b.classList.toggle('on', B.dir === b.dataset.bd));
+    $$('#biasThick [data-bt]').forEach(b => b.classList.toggle('on', B.th === +b.dataset.bt));
+    $$('#biasPal button').forEach(b => {
+      b.setAttribute('aria-pressed', String(b.dataset.c === B.col));
+      if (b.dataset.c === 'custom') { b.querySelector('input').value = B.hex || NEON; return; }
+      b.querySelector('i').style.setProperty('--c', colHex(b.dataset.c));
+      b.disabled = (S.bg === 'black' && b.dataset.c === 'black') || (S.bg === 'white' && b.dataset.c === 'white');
+    });
+  }
+  function setBias(ch) { Object.assign(B, ch || {}); saveBias(); syncBias(); drawBias(); placeGridBar(); }
+  function placeBiasBar() {
+    const bb = document.getElementById('biasPop'); if (!bb) return;
+    bb.hidden = !(S.step === 'project' && B.on);
+    if (bb.hidden) return;
+    // keep clear of the panel and the toolbox
+    const sp = barSpace(), tb = $('#toolbox');
+    let x0 = sp.x0, x1 = sp.x1;
+    if (!tb.hidden) { const r = tb.getBoundingClientRect(); if (r.width) { if (r.left > innerWidth / 2) x1 = Math.min(x1, r.left); else x0 = Math.max(x0, r.right); } }
+    bb.style.left = ((x0 + x1) / 2) + 'px'; bb.style.maxWidth = Math.max(240, x1 - x0 - 24) + 'px';
+    // sit under the line bar and the grid bar when they're at the top too
+    let top = 56;
+    [$('#lineBar'), $('#gridPop')].forEach(el => {
+      if (!el || el.hidden || el.classList.contains('bottom')) return;
+      const r = el.getBoundingClientRect();
+      if (r.height && r.top < top + 50 && r.bottom > top - 4) top = r.bottom + 8;
+    });
+    bb.style.top = top === 56 ? '' : top + 'px';
+  }
+  Object.keys(SWATCH).concat('custom').forEach(k => {
+    const b = document.createElement('button'); b.type = 'button'; b.dataset.c = k;
+    const name = k === 'custom' ? 'Pick any colour' : SWATCH[k].name; b.setAttribute('aria-label', name); b.title = name;
+    if (k === 'custom') {
+      b.className = 'wheel'; b.innerHTML = '<i></i><input type="color" list="wheelSuggest" aria-label="Pick any colour (neon green to start)">';
+      const inp = b.querySelector('input');
+      inp.addEventListener('input', () => setBias({ col: 'custom', hex: inp.value }));
+      inp.addEventListener('click', () => { if (B.col !== 'custom') setBias({ col: 'custom' }); });
+    } else { b.innerHTML = '<i></i>'; b.addEventListener('click', () => setBias({ col: k })); }
+    $('#biasPal').append(b);
+  });
+  $$('#biasWidths [data-bw]').forEach(b => b.addEventListener('click', () => {
+    const v = b.dataset.bw === 'custom' ? 'custom' : +b.dataset.bw; setBias({ w: v });
+    if (v === 'custom') { const i = $('#biasCustom'); i.focus(); i.select(); }
+  }));
+  $('#biasCustom').addEventListener('input', e => { const v = parseFloat(e.target.value); if (v >= 5 && v <= 200) setBias({ custom: v }); });
+  $('#biasCustom').addEventListener('change', e => { const v = Math.max(5, Math.min(200, parseFloat(e.target.value) || B.custom)); e.target.value = v; setBias({ custom: v }); });
+  $('#biasCustom').addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'Enter' || e.key === 'Escape') e.target.blur(); });
+  $$('#biasDirs [data-bd]').forEach(b => b.addEventListener('click', () => setBias({ dir: b.dataset.bd })));
+  $$('#biasThick [data-bt]').forEach(b => b.addEventListener('click', () => setBias({ th: +b.dataset.bt })));
+  holdable($('#tbBias'), () => { setBias({ on: !B.on }); toast(B.on ? 'Bias strips on · width, direction and colour are in the bar at the top' : 'Bias strips off'); }, () => { if (!B.on) setBias({ on: true }); });
+  syncBias();
   function syncGridBtn() { const b = $('#tbGrid'); b.classList.toggle('on', !!S.grid); b.setAttribute('aria-pressed', String(!!S.grid)); }
   $('#gridChk').addEventListener('change', e => setGrid(e.target.checked));
   function openPop(pop, btn) {
@@ -6141,6 +6272,7 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
       tbRuler:  ['Ruler', '', ['Draws a line that shows its length as you draw. Straight to start with.', 'Hold|Straight or freehand, cm or inches.']],
       tbSnap:   ['Snap', 'N', ['Lines you draw jump onto pattern lines and corners. Turn off to place them freely.']],
       tbGrid:   ['Grid', 'G', ['Turns the measuring grid on the mat on or off. While it is on, its size, colour, brightness and thickness are in a bar at the top.']],
+      tbBias:   ['Bias strips', 'T', ['Lines across the mat, a strip width apart, so you can cut bias tape straight away with a roller. Width (in mm, or your own), direction, thickness and colour are in a bar at the top.']],
       tbTheme:  ['Colours', '', ['Switches between light and dark, and your custom colours once you’ve set them.', 'Hold|Light, dark or custom: pattern and grid colours, line weight, reset the screen.']],
       tbQuiet:  ['Quiet', 'Q', ['Blacks out the whole screen while you cut and mark. Tap anywhere or press any key to bring it back.']],
       tbUndo:   ['Undo', '⌘Z', ['Takes back your last change.']],
@@ -6255,6 +6387,7 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
     if ((k === 'o' || k === 'O') && S.step === 'project') { ov.hidden ? openOverview() : (ov.hidden = true); return; }
     if ((k === 'n' || k === 'N') && S.step === 'project' && !e.metaKey && !e.ctrlKey) { $('#tbSnap').click(); return; }
     if ((k === 'g' || k === 'G') && S.step === 'project' && !e.metaKey && !e.ctrlKey) { $('#tbGrid').click(); return; }
+    if ((k === 't' || k === 'T') && S.step === 'project' && !e.metaKey && !e.ctrlKey) { $('#tbBias').click(); return; }
     if ((k === 'a' || k === 'A') && S.step === 'project' && !e.metaKey && !e.ctrlKey) { grainToLast(false); return; }
     const TK = { v: 'move', l: 'line', p: 'free' };
     if (S.step === 'project' && TK[k.toLowerCase()] && !e.metaKey && !e.ctrlKey) { toggleTool(TK[k.toLowerCase()]); return; }
