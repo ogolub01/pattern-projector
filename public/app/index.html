@@ -1639,7 +1639,13 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
     }
     g.restore();
   }
-  const fmtLen = mm => S.lunit === 'in' ? (mm / 25.4).toFixed(2) + ' in' : (mm / 10).toFixed(1) + ' cm';
+  const fmtLen = mm => S.lunit === 'in' ? (mm / 25.4).toFixed(2) + ' in' : (mm / 10).toFixed(2) + ' cm';
+  // Shift while dragging a line end: the line points at the nearest 45° (on the mat), its length follows the pointer
+  function snap45(a, q) {
+    const dx = q[0] - a[0], dy = q[1] - a[1], t = Math.round(Math.atan2(dy, dx) / (Math.PI / 4)) * (Math.PI / 4);
+    const u = [Math.cos(t), Math.sin(t)], L = Math.max(0, dx * u[0] + dy * u[1]);
+    return [a[0] + u[0] * L, a[1] + u[1] * L];
+  }
   function drawLines() {
     try { syncLinked(); } catch {}
     const g = sizeCanvasExt(lineC, screenExt());
@@ -1726,6 +1732,13 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
       }
     }
     all.forEach(l => { if ((l.ruler ?? S.ruler) || (l === S.draft && (S.rulerPen || S.penRuler))) drawRuler(g, isPoly(l) ? l.pts : [l.a, l.b], colorOf(l)); });
+    // while a measured line is being drawn or its end dragged, its length shows by the moving end
+    { const d = S.draft, live = d && !d.shape && (S.rulerPen || S.penRuler || S.ruler) ? d : S.liveLen ? S.lines.find(x => x.id === S.liveLen && (x.ruler ?? S.ruler)) : null;
+      if (live) {
+        const at = isPoly(live) ? live.pts[live.pts.length - 1] : (live !== d && S.liveEnd === 'a' ? live.a : live.b);
+        const sc = toScreen(at), mpp = sc ? pxToMm(1, sc) : 0.5;
+        label(g, fmtLen(lenMm(live)), [at[0] + 8 * mpp, at[1] - 8 * mpp], colorOf(live), Math.max(6, 14 * mpp));
+      } }
     if (S.snapHint) {
       const h = S.snapHint.p; g.strokeStyle = M.acc; g.lineWidth = lw();
       if (S.snapHint.kind === 'corner') g.strokeRect(h[0] - 4, h[1] - 4, 8, 8);
@@ -4612,7 +4625,8 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
     return {
       move: ev => {
         const t = toMm(ev.clientX, ev.clientY);
-        S.draft.b = (S.lmode === 'free' || !refLine()) ? snapped(t, ev) : constrain(S.draft.a, snapped(t, ev));
+        if (ev.shiftKey && (S.lmode === 'free' || !refLine())) { S.snapHint = null; S.draft.b = snap45(S.draft.a, t); }
+        else S.draft.b = (S.lmode === 'free' || !refLine()) ? snapped(t, ev) : constrain(S.draft.a, snapped(t, ev));
         drawLines();
       },
       up: () => {
@@ -4818,9 +4832,15 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
       if (S.selId !== l.id) { S.selId = l.id; renderLineList(); }
       S.snapSkip = new Set([l.id]);
       return {
-        move: ev => { const q = snapped(toMm(ev.clientX, ev.clientY), ev); l[end] = l.rel ? alongOwn(l, q) : q; commit(l); drawLines(); },
-        up: () => { S.snapHint = null; S.snapSkip = null; commit(l); renderLineList(); drawLines(); },
-        abort: () => { S.snapHint = null; S.snapSkip = null; l[end] = orig; commit(l); drawLines(); }
+        move: ev => {
+          S.liveLen = l.id; S.liveEnd = end;
+          const raw = toMm(ev.clientX, ev.clientY);
+          if (ev.shiftKey && !l.rel) { S.snapHint = null; l[end] = snap45(l[end === 'a' ? 'b' : 'a'], raw); }
+          else { const q = snapped(raw, ev); l[end] = l.rel ? alongOwn(l, q) : q; }
+          commit(l); drawLines();
+        },
+        up: () => { S.liveLen = null; S.snapHint = null; S.snapSkip = null; commit(l); renderLineList(); drawLines(); },
+        abort: () => { S.liveLen = null; S.snapHint = null; S.snapSkip = null; l[end] = orig; commit(l); drawLines(); }
       };
     }
     // body: in Move, any line; in Line, only the selected one (so you can still start new lines nearby)
@@ -5194,7 +5214,7 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
   const TOOL_HINT = {
     ptm: 'Point to point · tap A on the pattern, then tap B · or press on A and drag to B',
     move: 'Move · drag the pattern, or grab a line or its end to adjust it',
-    line: 'Straight line · drag on the mat; grab an end of a line to adjust it',
+    line: 'Straight line · drag on the mat (hold Shift for 45° steps); grab an end of a line to adjust it',
     free: 'Freehand · draw with a finger, mouse or Apple Pencil',
     rect: 'Rectangle · drag corner to corner, or type the size in the bar at the top',
     circle: 'Circle · drag out from the centre, or type the radius or circumference at the top',
@@ -6720,7 +6740,7 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
       flipV:    ['Flip top to bottom', '', ['Mirrors across a level line. A faint brass line shows where; drag it and the next flip happens there.', 'Right-click the line|Put it back in the middle.']],
       overviewBtn: ['Select area', 'O', ['See the whole pattern zoomed out and tap the part you want in the middle of your mat.']],
       align:    ['Straighten', 'S', ['Tap two points on the printed grainline. The piece turns so the grain runs straight on your mat.']],
-      line:     ['Straight line', 'L', ['Draw a straight line: a cutting line, fold or grain mark. Colour and style live in the bar at the top.']],
+      line:     ['Straight line', 'L', ['Draw a straight line: a cutting line, fold or grain mark. Colour and style live in the bar at the top.', 'Shift|Keeps the line at the nearest 45°, while drawing or dragging an end.']],
       rect:     ['Rectangle', 'M', ['Drag from one corner to the other (hold Shift for a square). Or type the width and height in the bar at the top and tap Place. Select a rectangle to change its size.']],
       circle:   ['Circle', 'C', ['Drag out from the centre. Or type the radius or the circumference in the bar at the top and tap Place. Select a circle to change its size.']],
       free:     ['Freehand', 'P', ['Draw freely, like a chalk pen, for notches, darts and alterations.']],
