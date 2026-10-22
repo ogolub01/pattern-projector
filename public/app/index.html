@@ -799,6 +799,7 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
             <button class="btn slim toggle" id="foldBtn" aria-pressed="false" title="Show the mirror image on the other side of this line, as if cut on the fold">Mirror on fold</button>
           </div>
         </div>
+        <button class="btn slim" id="bringBtn" title="Lay a separated piece from another of your saved patterns on this mat, to compare">+ Piece from another pattern</button>
         <div class="group" id="lineTools" hidden><button class="btn danger slim" id="clearLines" title="Removes every line and mark (Undo brings them back)">✕ Clear all lines</button></div>
       </div>
     </details>
@@ -823,6 +824,11 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
           <button class="btn" id="editPiecesBtn" title="Mark each pattern piece once, on the whole sheet">Mark pieces</button>
           <button class="btn slim" id="asmOpen2" hidden title="Back to putting the pages together, just as you left it">Edit page layout</button>
           <button class="btn slim" id="addPieceBtn" hidden></button><button class="btn slim" id="findPieces" hidden></button>
+        </div>
+        <div class="group" id="sepBox" hidden>
+          <button class="btn" id="sepBtn" title="Each marked piece becomes its own object with an exact outline, so you can move, turn and flip it on its own">Separate pieces</button>
+          <label class="check" for="sheetChk" id="sheetRow" hidden><span>Show the PDF sheet</span><input type="checkbox" id="sheetChk"></label>
+          <button class="btn slim" id="sepBack" hidden title="Removes the separated pieces of this pattern and shows the sheet again">Put pieces back on the sheet</button>
         </div>
       </div>
     </details>
@@ -1203,6 +1209,395 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>
+// Notch vector pieces: read the PDF's own drawn lines, and build an exact outline for a marked piece.
+// Pure functions (no DOM), shared by the app and the tests. All coordinates in sheet millimetres.
+(function (root) {
+  'use strict';
+  const PT_TO_MM = 25.4 / 72;
+  const mul = (a, b) => [a[0] * b[0] + a[2] * b[1], a[1] * b[0] + a[3] * b[1], a[0] * b[2] + a[2] * b[3], a[1] * b[2] + a[3] * b[3], a[0] * b[4] + a[2] * b[5] + a[4], a[1] * b[4] + a[3] * b[5] + a[5]];
+  const ap = (m, x, y) => [m[0] * x + m[2] * y + m[4], m[1] * x + m[3] * y + m[5]];
+
+  // every stroked or filled path on the page, flattened to polylines, in mm on the rendered sheet
+  async function extractVectors(page, OPS, occ, viewportTransform) {
+    const ol = await page.getOperatorList();
+    const fn = ol.fnArray, args = ol.argsArray;
+    let ctm = viewportTransform.slice();
+    const stack = [];
+    let lw = 1, dash = false, cur = [], subs = [], pend = null;
+    const vis = [true];
+    const polys = [];
+    let n = 0;
+    const flush = (kind) => {
+      if (!vis[vis.length - 1]) { subs = []; cur = []; return; }
+      if (cur.length > 1) subs.push({ pts: cur, closed: false });
+      cur = [];
+      const sc = Math.sqrt(Math.abs(ctm[0] * ctm[3] - ctm[1] * ctm[2]));
+      subs.forEach(s => { if (s.pts.length > 1) polys.push({ id: n++, pts: s.pts, closed: s.closed, w: lw * sc, dash, fill: kind === 'fill' }); });
+      subs = [];
+    };
+    for (let i = 0; i < fn.length; i++) {
+      const f = fn[i], a = args[i];
+      switch (f) {
+        case OPS.save: stack.push({ ctm: ctm.slice(), lw, dash }); break;
+        case OPS.restore: { const s = stack.pop(); if (s) { ctm = s.ctm; lw = s.lw; dash = s.dash; } break; }
+        case OPS.transform: ctm = mul(ctm, a); break;
+        case OPS.paintFormXObjectBegin: stack.push({ ctm: ctm.slice(), lw, dash }); if (a && a[0]) ctm = mul(ctm, a[0]); break;
+        case OPS.paintFormXObjectEnd: { const s = stack.pop(); if (s) { ctm = s.ctm; lw = s.lw; dash = s.dash; } break; }
+        case OPS.setLineWidth: lw = a[0]; break;
+        case OPS.setDash: dash = !!(a[0] && a[0].length && a[0].some(v => v > 0)); break;
+        case OPS.beginMarkedContent: vis.push(vis[vis.length - 1]); break;
+        case OPS.beginMarkedContentProps: {
+          let v = vis[vis.length - 1];
+          if (occ && a[0] === 'OC' && a[1]) { try { v = v && occ.isVisible(a[1]); } catch {} }
+          vis.push(v); break;
+        }
+        case OPS.endMarkedContent: if (vis.length > 1) vis.pop(); break;
+        case OPS.constructPath: {
+          const ops = a[0], c = a[1]; let k = 0;
+          for (const op of ops) {
+            if (op === OPS.moveTo) { if (cur.length > 1) subs.push({ pts: cur, closed: false }); cur = [ap(ctm, c[k], c[k + 1])]; k += 2; }
+            else if (op === OPS.lineTo) { cur.push(ap(ctm, c[k], c[k + 1])); k += 2; }
+            else if (op === OPS.curveTo || op === OPS.curveTo2 || op === OPS.curveTo3) {
+              const p0 = cur.length ? cur[cur.length - 1] : ap(ctm, c[k], c[k + 1]);
+              let p1, p2, p3;
+              if (op === OPS.curveTo) { p1 = ap(ctm, c[k], c[k + 1]); p2 = ap(ctm, c[k + 2], c[k + 3]); p3 = ap(ctm, c[k + 4], c[k + 5]); k += 6; }
+              else if (op === OPS.curveTo2) { p1 = p0; p2 = ap(ctm, c[k], c[k + 1]); p3 = ap(ctm, c[k + 2], c[k + 3]); k += 4; }
+              else { p1 = ap(ctm, c[k], c[k + 1]); p2 = ap(ctm, c[k + 2], c[k + 3]); p3 = p2; k += 4; }
+              if (!cur.length) cur.push(p0);
+              const L = Math.hypot(p1[0] - p0[0], p1[1] - p0[1]) + Math.hypot(p2[0] - p1[0], p2[1] - p1[1]) + Math.hypot(p3[0] - p2[0], p3[1] - p2[1]);
+              const N = Math.max(2, Math.min(40, Math.ceil(L / 1.5)));
+              for (let j = 1; j <= N; j++) { const t = j / N, u = 1 - t; cur.push([u * u * u * p0[0] + 3 * u * u * t * p1[0] + 3 * u * t * t * p2[0] + t * t * t * p3[0], u * u * u * p0[1] + 3 * u * u * t * p1[1] + 3 * u * t * t * p2[1] + t * t * t * p3[1]]); }
+            }
+            else if (op === OPS.closePath) { if (cur.length > 1) { cur.push(cur[0].slice()); subs.push({ pts: cur, closed: true }); cur = [cur[0].slice()]; } }
+            else if (op === OPS.rectangle) {
+              if (cur.length > 1) subs.push({ pts: cur, closed: false });
+              const x = c[k], y = c[k + 1], w = c[k + 2], h = c[k + 3]; k += 4;
+              subs.push({ pts: [ap(ctm, x, y), ap(ctm, x + w, y), ap(ctm, x + w, y + h), ap(ctm, x, y + h), ap(ctm, x, y)], closed: true }); cur = [];
+            }
+          }
+          break;
+        }
+        case OPS.stroke: case OPS.closeStroke: flush('stroke'); break;
+        case OPS.fill: case OPS.eoFill: case OPS.fillStroke: case OPS.eoFillStroke: case OPS.closeFillStroke: case OPS.closeEOFillStroke: flush('fill'); break;
+        case OPS.endPath: subs = []; cur = []; break;
+      }
+    }
+    // to mm: the viewport transform already maps to the rendered sheet in its own units; the caller passes a viewport at PT_TO_MM
+    let segs = 0; polys.forEach(p => segs += p.pts.length - 1);
+    return { polys, segs };
+  }
+
+  /* ---------- geometry helpers ---------- */
+  function projSeg(p, a, b) {
+    const dx = b[0] - a[0], dy = b[1] - a[1], L2 = dx * dx + dy * dy;
+    let t = L2 ? ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / L2 : 0; t = t < 0 ? 0 : t > 1 ? 1 : t;
+    const x = a[0] + t * dx, y = a[1] + t * dy;
+    return { t, x, y, d: Math.hypot(p[0] - x, p[1] - y) };
+  }
+  function rdp(pts, eps) {
+    if (pts.length < 3) return pts.slice();
+    const keep = new Uint8Array(pts.length); keep[0] = keep[pts.length - 1] = 1;
+    const st = [[0, pts.length - 1]];
+    while (st.length) {
+      const [i, j] = st.pop(); let md = 0, mk = -1;
+      for (let k = i + 1; k < j; k++) { const d = projSeg(pts[k], pts[i], pts[j]).d; if (d > md) { md = d; mk = k; } }
+      if (md > eps && mk > 0) { keep[mk] = 1; st.push([i, mk], [mk, j]); }
+    }
+    return pts.filter((_, k) => keep[k]);
+  }
+  // closed polygon: simplify without losing its start
+  function rdpClosed(pts, eps) {
+    if (pts.length < 5) return pts.slice();
+    // start at the point furthest from the first, so the seam isn't at an arbitrary place
+    let far = 0, fd = 0; pts.forEach((p, k) => { const d = Math.hypot(p[0] - pts[0][0], p[1] - pts[0][1]); if (d > fd) { fd = d; far = k; } });
+    const a = rdp(pts.slice(0, far + 1), eps), b = rdp(pts.slice(far).concat([pts[0]]), eps);
+    return a.concat(b.slice(1, -1));
+  }
+  const area = pts => { let s = 0; for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) s += (pts[j][0] + pts[i][0]) * (pts[j][1] - pts[i][1]); return s / 2; };
+  function inPoly(pts, x, y) {
+    let inside = false;
+    for (let a = 0, z = pts.length - 1; a < pts.length; z = a++) { const [xi, yi] = pts[a], [xj, yj] = pts[z]; if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) inside = !inside; }
+    return inside;
+  }
+  function lineX(a1, a2, b1, b2) {
+    const d1 = [a2[0] - a1[0], a2[1] - a1[1]], d2 = [b2[0] - b1[0], b2[1] - b1[1]], den = d1[0] * d2[1] - d1[1] * d2[0];
+    if (Math.abs(den) < 1e-9) return null;
+    const t = ((b1[0] - a1[0]) * d2[1] - (b1[1] - a1[1]) * d2[0]) / den;
+    return [a1[0] + d1[0] * t, a1[1] + d1[1] * t];
+  }
+
+  // outer boundary of a cell mask (cells are `cell` mm, origin ox, oy), as a polygon through cell corners
+  function maskContour(bits, w, h, ox, oy, cell) {
+    const at = (x, y) => x >= 0 && y >= 0 && x < w && y < h && bits[y * w + x];
+    const next = new Map(), key = (x, y) => x * 65536 + y;
+    // directed edges with the filled cell on the right (screen coords, y down) → clockwise loops
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      if (!at(x, y)) continue;
+      if (!at(x, y - 1)) add(x, y, x + 1, y);
+      if (!at(x + 1, y)) add(x + 1, y, x + 1, y + 1);
+      if (!at(x, y + 1)) add(x + 1, y + 1, x, y + 1);
+      if (!at(x - 1, y)) add(x, y + 1, x, y);
+    }
+    function add(x0, y0, x1, y1) { const k = key(x0, y0); let l = next.get(k); if (!l) next.set(k, l = []); l.push([x1, y1]); }
+    let best = null, bestA = 0;
+    const used = new Set();
+    for (const [k0, outs] of next) {
+      for (let oi = 0; oi < outs.length; oi++) {
+        const ek = k0 + ':' + oi; if (used.has(ek)) continue;
+        const loop = []; let k = k0, o = oi, guard = 0;
+        let x = Math.floor(k0 / 65536), y = k0 % 65536;
+        while (guard++ < 4e6) {
+          const e = k + ':' + o; if (used.has(e)) break; used.add(e);
+          loop.push([x, y]);
+          const [nx, ny] = next.get(k)[o];
+          const nk = key(nx, ny), cand = next.get(nk); if (!cand) break;
+          // at a pinch point, turn right (keeps loops simple)
+          let pick = 0;
+          if (cand.length > 1) { const dx = nx - x, dy = ny - y; let bestS = -9; cand.forEach((c, ci) => { if (used.has(nk + ':' + ci)) return; const ex = c[0] - nx, ey = c[1] - ny, cr = dx * ey - dy * ex, dt = dx * ex + dy * ey; const s = cr > 0 ? 2 : dt > 0 ? 1 : 0; if (s > bestS) { bestS = s; pick = ci; } }); }
+          x = nx; y = ny; k = nk; o = pick;
+          if (k === k0 && o === oi) break;
+        }
+        const A = Math.abs(area(loop));
+        if (A > bestA) { bestA = A; best = loop; }
+      }
+    }
+    if (!best) return null;
+    // drop the in-between points on straight runs, then to mm
+    const out = [];
+    for (let i = 0; i < best.length; i++) {
+      const p = best[(i + best.length - 1) % best.length], q = best[i], r = best[(i + 1) % best.length];
+      if ((q[0] - p[0]) * (r[1] - q[1]) - (q[1] - p[1]) * (r[0] - q[0]) !== 0) out.push([ox + q[0] * cell, oy + q[1] * cell]);
+    }
+    return out;
+  }
+  // smooth a staircase contour a little (two rounds of corner cutting)
+  function chaikin(pts, n) {
+    let p = pts;
+    for (let r = 0; r < n; r++) { const o = []; for (let i = 0; i < p.length; i++) { const a = p[i], b = p[(i + 1) % p.length]; o.push([a[0] * 0.75 + b[0] * 0.25, a[1] * 0.75 + b[1] * 0.25], [a[0] * 0.25 + b[0] * 0.75, a[1] * 0.25 + b[1] * 0.75]); } p = o; }
+    return p;
+  }
+  function resample(pts, step) {
+    const out = [], n = pts.length;
+    for (let i = 0; i < n; i++) {
+      const a = pts[i], b = pts[(i + 1) % n], L = Math.hypot(b[0] - a[0], b[1] - a[1]), m = Math.max(1, Math.ceil(L / step));
+      for (let j = 0; j < m; j++) out.push([a[0] + (b[0] - a[0]) * j / m, a[1] + (b[1] - a[1]) * j / m]);
+    }
+    return out;
+  }
+
+  // segment index over the whole sheet (5 mm buckets), built once per page
+  function indexVectors(vec, sheet) {
+    const B = 5, cells = new Map();
+    const segs = [];
+    vec.polys.forEach(p => {
+      const cum = [0];
+      for (let i = 1; i < p.pts.length; i++) cum.push(cum[i - 1] + Math.hypot(p.pts[i][0] - p.pts[i - 1][0], p.pts[i][1] - p.pts[i - 1][1]));
+      p.cum = cum; p.len = cum[cum.length - 1];
+      if (!p.closed && p.pts.length > 3 && Math.hypot(p.pts[0][0] - p.pts[p.pts.length - 1][0], p.pts[0][1] - p.pts[p.pts.length - 1][1]) < 0.3) p.closed = true;
+      for (let i = 1; i < p.pts.length; i++) {
+        const a = p.pts[i - 1], b = p.pts[i], s = segs.length;
+        if (sheet && Math.hypot(b[0] - a[0], b[1] - a[1]) > 0.7 * Math.min(sheet[0], sheet[1]) && (Math.min(a[0], b[0], a[1], b[1]) < 4 || Math.max(a[0], b[0]) > sheet[0] - 4 || Math.max(a[1], b[1]) > sheet[1] - 4)) continue;
+        segs.push({ p, i, a, b });
+        const x0 = Math.floor(Math.min(a[0], b[0]) / B), x1 = Math.floor(Math.max(a[0], b[0]) / B), y0 = Math.floor(Math.min(a[1], b[1]) / B), y1 = Math.floor(Math.max(a[1], b[1]) / B);
+        if ((x1 - x0 + 1) * (y1 - y0 + 1) > 4000) continue;   // a page-sized frame line: skip
+        for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) { const k = x * 100003 + y; let l = cells.get(k); if (!l) cells.set(k, l = []); l.push(s); }
+      }
+    });
+    vec.index = { B, cells, segs };
+    return vec.index;
+  }
+  function near(idx, p, R) {
+    const B = idx.B, out = new Set();
+    for (let y = Math.floor((p[1] - R) / B); y <= Math.floor((p[1] + R) / B); y++) for (let x = Math.floor((p[0] - R) / B); x <= Math.floor((p[0] + R) / B); x++) { const l = idx.cells.get(x * 100003 + y); if (l) l.forEach(s => out.add(s)); }
+    return out;
+  }
+
+  function erode(mask, r) {
+    const { w, h, bits } = mask, o = new Uint8Array(w * h);
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      if (!bits[y * w + x]) continue; let ok = 1;
+      for (let dy = -r; dy <= r && ok; dy++) for (let dx = -r; dx <= r; dx++) { const nx = x + dx, ny = y + dy; if (nx < 0 || ny < 0 || nx >= w || ny >= h || !bits[ny * w + nx]) { ok = 0; break; } }
+      o[y * w + x] = ok;
+    }
+    return Object.assign({}, mask, { bits: o });
+  }
+  function traceOutline(mask, vec) {
+    const m = mask.cell >= 1 ? erode(mask, 1) : mask;
+    const raw = maskContour(m.bits, m.w, m.h, m.x, m.y, m.cell) || maskContour(mask.bits, mask.w, mask.h, mask.x, mask.y, mask.cell);
+    if (!raw) return null;
+    const sm = chaikin(raw, 2), pts = rdpClosed(sm, 0.35);
+    return { pts: area(pts) < 0 ? pts.reverse() : pts, kind: 'traced', cover: 0, marks: vec ? marksInside(vec, sm, []) : [] };
+  }
+  // markings, packed small for saving: hundredths of a millimetre
+  const packMarks = ms => ms.map(m => ({ d: m.dash ? 1 : 0, f: m.fill ? 1 : 0, w: Math.round((m.w || 0.3) * 100) / 100, p: m.pts.flatMap(q => [Math.round(q[0] * 100), Math.round(q[1] * 100)]) }));
+  const unpackMarks = ms => (ms || []).map(m => { const pts = []; for (let i = 0; i < m.p.length; i += 2) pts.push([m.p[i] / 100, m.p[i + 1] / 100]); return { dash: !!m.d, fill: !!m.f, w: m.w, pts }; });
+
+  /* Build a piece's outline.
+     mask: { bits, w, h, x, y, cell } in sheet mm. Returns { pts, kind: 'vector' | 'traced', cover, marks }.
+     How: walk round the edge of the marked area; at each step, find the designer's line running alongside
+     (within 5 mm, roughly parallel). Consecutive steps on the same line take that line's own points; where one
+     line hands over to the next, the two are met at their crossing, so corners stay sharp. */
+  function buildOutline(vec, mask, opt) {
+    opt = opt || {};
+    const idx = vec.index || indexVectors(vec, vec.sheet);
+    const raw = maskContour(mask.bits, mask.w, mask.h, mask.x, mask.y, mask.cell);
+    if (!raw || raw.length < 3) return null;
+    const smooth = chaikin(raw, 2);
+    const S = resample(smooth, 0.5), N = S.length, R = opt.reach || 5;
+    const hit = new Array(N);
+    for (let i = 0; i < N; i++) {
+      const p = S[i], q = S[(i + 4) % N], o = S[(i + N - 4) % N], tx = q[0] - o[0], ty = q[1] - o[1], tl = Math.hypot(tx, ty) || 1;
+      let best = null;
+      for (const s of near(idx, p, R)) {
+        const g = idx.segs[s], sx = g.b[0] - g.a[0], sy = g.b[1] - g.a[1], sl = Math.hypot(sx, sy);
+        if (sl < 1e-6) continue;
+        const cos = Math.abs(sx * tx + sy * ty) / (sl * tl);
+        if (cos < 0.8) continue;                            // across the edge (a notch, a tick): not the outline
+        const pr = projSeg(p, g.a, g.b);
+        if (pr.d > R) continue;
+        // inside the marked area counts a little extra, so a neighbour's line just outside never wins
+        const ins = inPolyFast(smooth, pr.x, pr.y);
+        const score = pr.d + (ins ? 0 : 1.2) - (g.p.len > 30 ? 0.3 : 0);
+        if (!best || score < best.score) best = { score, s, x: pr.x, y: pr.y, pos: g.p.cum[g.i - 1] + pr.t * (g.p.cum[g.i] - g.p.cum[g.i - 1]) };
+      }
+      hit[i] = best;
+    }
+    // runs of steps following the same line
+    let runs = [];
+    for (let i = 0; i < N; i++) {
+      const h = hit[i], pid = h ? idx.segs[h.s].p.id : -1, last = runs[runs.length - 1];
+      if (last && last.pid === pid) last.k.push(i); else runs.push({ pid, k: [i] });
+    }
+    if (runs.length > 1 && runs[0].pid === runs[runs.length - 1].pid) { const l = runs.pop(); runs[0].k = l.k.concat(runs[0].k); }
+    // short runs are crossings (labels, notches, a grainline end): give them to the line either side
+    const MIN = 10;   // 5 mm
+    for (let pass = 0; pass < 3; pass++) {
+      runs = runs.filter((r, j) => {
+        if (r.k.length >= MIN || runs.length < 3) return true;
+        const prev = runs[(j + runs.length - 1) % runs.length]; prev.k = prev.k.concat(r.k); return false;
+      });
+      // neighbours on the same line again: join them
+      const m = []; runs.forEach(r => { const l = m[m.length - 1]; if (l && l.pid === r.pid) l.k = l.k.concat(r.k); else m.push(r); });
+      if (m.length > 1 && m[0].pid === m[m.length - 1].pid) { const l = m.pop(); m[0].k = l.k.concat(m[0].k); }
+      runs = m;
+    }
+    const covered = runs.filter(r => r.pid >= 0).reduce((s, r) => s + r.k.length, 0) / N;
+    if (covered < 0.6 || !runs.some(r => r.pid >= 0)) return traceOutline(mask, vec);
+    // each run → the line's own points between where the walk joined and left it; where no line was found
+    // (a piece touching the page edge, say), the traced edge fills the gap
+    const byId = new Map(vec.polys.map(p => [p.id, p]));
+    const parts = runs.map(r => {
+      if (r.pid < 0) return { gap: true, pts: r.k.filter((_, j) => j % 4 === 0 || j === r.k.length - 1).map(i => S[i].slice()) };
+      const P = byId.get(r.pid), ks = r.k.filter(i => hit[i] && idx.segs[hit[i].s].p.id === r.pid);
+      let pos = ks.map(i => hit[i].pos);
+      // closed lines (one loop for the whole piece) can wrap round their start
+      if (P.closed && P.len > 0) { for (let j = 1; j < pos.length; j++) { while (pos[j] - pos[j - 1] > P.len / 2) pos[j] -= P.len; while (pos[j] - pos[j - 1] < -P.len / 2) pos[j] += P.len; } }
+      return { P, pts: along(P, pos[0], pos[pos.length - 1]) };
+    });
+    const out = [];
+    for (let j = 0; j < parts.length; j++) {
+      const A = parts[j], B = parts[(j + 1) % parts.length], pa = A.pts;
+      pa.forEach(p => out.push(p));
+      if (parts.length > 1 && !A.gap && !B.gap && pa.length > 1 && B.pts.length > 1) {
+        // extend this line's end and the next line's start to where they cross (a sharp corner)
+        const a1 = pa[pa.length - 2], a2 = pa[pa.length - 1], b1 = B.pts[0], b2 = B.pts[1];
+        const X = lineX(a1, a2, b1, b2);
+        if (X && Math.hypot(X[0] - a2[0], X[1] - a2[1]) < 8 && Math.hypot(X[0] - b1[0], X[1] - b1[1]) < 8) { out[out.length - 1] = X; B.pts[0] = X; }
+      }
+    }
+    // tidy: remove repeats, the closing duplicate, and points that add nothing (under 0.05 mm off the line)
+    let pts = out.filter((p, k) => !k || Math.hypot(p[0] - out[k - 1][0], p[1] - out[k - 1][1]) > 0.02);
+    if (pts.length > 2 && Math.hypot(pts[0][0] - pts[pts.length - 1][0], pts[0][1] - pts[pts.length - 1][1]) < 0.05) pts.pop();
+    pts = rdpClosed(pts, opt.eps || 0.2);
+    if (area(pts) < 0) pts.reverse();
+    // the area must be about the marked one; otherwise something went wrong, use the traced one
+    const am = Math.abs(area(smooth)), ao = Math.abs(area(pts));
+        if (!(ao > am * 0.75 && ao < am * 1.1)) return traceOutline(mask, vec);
+    return { pts, kind: covered > 0.97 ? 'vector' : 'mixed', cover: covered, marks: marksInside(vec, pts, new Set(runs.map(r => r.pid))) };
+  }
+  // points of a polyline between two positions along it (either direction, wrapping on closed ones)
+  function along(P, a, b) {
+    const L = P.len, cum = P.cum, pts = P.pts;
+    const at = s => {
+      if (P.closed && L > 0) s = ((s % L) + L) % L;
+      s = Math.max(0, Math.min(L, s));
+      let i = 1; while (i < cum.length - 1 && cum[i] < s) i++;
+      const t = (s - cum[i - 1]) / ((cum[i] - cum[i - 1]) || 1);
+      return { i, p: [pts[i - 1][0] + (pts[i][0] - pts[i - 1][0]) * t, pts[i - 1][1] + (pts[i][1] - pts[i - 1][1]) * t] };
+    };
+    const out = [at(a).p], dir = b >= a ? 1 : -1;
+    // vertices strictly between a and b
+    const vs = [];
+    const lo = Math.min(a, b), hi = Math.max(a, b);
+    for (let wrap = P.closed ? -1 : 0; wrap <= (P.closed ? 1 : 0); wrap++) for (let i = 0; i < cum.length; i++) { const s = cum[i] + wrap * L; if (s > lo && s < hi) vs.push([s, pts[i]]); }
+    vs.sort((x, y) => (x[0] - y[0]) * dir).forEach(v => out.push(v[1].slice()));
+    out.push(at(b).p);
+    return out;
+  }
+  // a quick inside test against a polygon with a cached row index
+  const rowCache = new WeakMap();
+  function inPolyFast(pts, x, y) {
+    let c = rowCache.get(pts);
+    if (!c) {
+      let y0 = Infinity, y1 = -Infinity; pts.forEach(p => { if (p[1] < y0) y0 = p[1]; if (p[1] > y1) y1 = p[1]; });
+      const rows = new Map(), B = 4;
+      for (let a = 0, z = pts.length - 1; a < pts.length; z = a++) { const ya = Math.min(pts[a][1], pts[z][1]), yb = Math.max(pts[a][1], pts[z][1]); for (let r = Math.floor(ya / B); r <= Math.floor(yb / B); r++) { let l = rows.get(r); if (!l) rows.set(r, l = []); l.push(a, z); } }
+      c = { rows, B }; rowCache.set(pts, c);
+    }
+    const l = c.rows.get(Math.floor(y / c.B)); if (!l) return false;
+    let inside = false;
+    for (let k = 0; k < l.length; k += 2) { const [xi, yi] = pts[l[k]], [xj, yj] = pts[l[k + 1]]; if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) inside = !inside; }
+    return inside;
+  }
+  // everything drawn inside the outline (grainline, notches, labels, stitching line), each as its own polyline
+  function marksInside(vec, outline, skip) {
+    const skipS = skip instanceof Set ? skip : new Set(skip || []);
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    outline.forEach(p => { x0 = Math.min(x0, p[0]); y0 = Math.min(y0, p[1]); x1 = Math.max(x1, p[0]); y1 = Math.max(y1, p[1]); });
+    const out = []; let budget = 60000;
+    vec.polys.forEach(P => {
+      if (skipS.has(P.id) || budget <= 0) return;
+      const b = P.bb || (P.bb = P.pts.reduce((m, p) => [Math.min(m[0], p[0]), Math.min(m[1], p[1]), Math.max(m[2], p[0]), Math.max(m[3], p[1])], [Infinity, Infinity, -Infinity, -Infinity]));
+      if (b[2] < x0 - 2 || b[0] > x1 + 2 || b[3] < y0 - 2 || b[1] > y1 + 2) return;
+      // keep the parts of the line that are inside (or just on) the outline
+      let cur = [];
+      const flush = () => { if (cur.length > 1) { out.push({ pts: cur, w: P.w, dash: P.dash, fill: P.fill }); budget -= cur.length; } cur = []; };
+      P.pts.forEach(p => { if (inPolyFast(outline, p[0], p[1]) || nearEdge(outline, p, 1.2)) cur.push(p.slice()); else flush(); });
+      flush();
+    });
+    return out;
+  }
+  function nearEdge(pts, p, d) {
+    for (let a = 0, z = pts.length - 1; a < pts.length; z = a++) if (projSeg(p, pts[z], pts[a]).d < d) return true;
+    return false;
+  }
+
+  /* where a piece is now: the best fit of its original outline onto its current points (turn, move, mirror) */
+  function fitRigid(src, dst) {
+    const n = Math.min(src.length, dst.length); if (n < 2) return null;
+    let sx = 0, sy = 0, dx = 0, dy = 0;
+    for (let i = 0; i < n; i++) { sx += src[i][0]; sy += src[i][1]; dx += dst[i][0]; dy += dst[i][1]; }
+    sx /= n; sy /= n; dx /= n; dy /= n;
+    const fit = (mir) => {
+      let a = 0, b = 0;
+      for (let i = 0; i < n; i++) { const x = (src[i][0] - sx) * (mir ? -1 : 1), y = src[i][1] - sy, X = dst[i][0] - dx, Y = dst[i][1] - dy; a += x * X + y * Y; b += x * Y - y * X; }
+      const t = Math.atan2(b, a), c = Math.cos(t), s = Math.sin(t);
+      const m = mir ? [-c, -s, -s, c] : [c, s, -s, c];   // [m0 m1 m2 m3] as x' = m0 x + m2 y, y' = m1 x + m3 y
+      const M = [m[0], m[1], m[2], m[3], dx - (m[0] * sx + m[2] * sy), dy - (m[1] * sx + m[3] * sy)];
+      let err = 0; for (let i = 0; i < n; i++) { const q = ap(M, src[i][0], src[i][1]); err += (q[0] - dst[i][0]) ** 2 + (q[1] - dst[i][1]) ** 2; }
+      return { M, err };
+    };
+    const A = fit(false), B = fit(true);
+    return (B.err < A.err ? B : A).M;
+  }
+  function invert(M) { const det = M[0] * M[3] - M[1] * M[2]; const a = M[3] / det, b = -M[1] / det, c = -M[2] / det, d = M[0] / det; return [a, b, c, d, -(a * M[4] + c * M[5]), -(b * M[4] + d * M[5])]; }
+
+  const api = { PT_TO_MM, extractVectors, indexVectors, buildOutline, traceOutline, packMarks, unpackMarks, maskContour, rdp, rdpClosed, area, inPoly, fitRigid, invert, apply: ap, mul };
+  if (typeof module !== 'undefined') module.exports = api; else root.NotchVec = api;
+})(typeof window !== 'undefined' ? window : globalThis);
+
+</script>
 <script>
 (() => {
   let lastExt = '';
@@ -1648,6 +2043,7 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
   }
   function drawLines() {
     try { syncLinked(); } catch {}
+    if (S.ptEdit && S.selId !== S.ptEdit) S.ptEdit = null;
     const g = sizeCanvasExt(lineC, screenExt());
     if (S.step !== 'project') { syncLineBar(); return; }
     const M = P(), sel = selLine(), selSet = new Set(selMembers().map(x => x.id));
@@ -1659,6 +2055,7 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
     all.forEach(l => {
       const isSel = selSet.has(l.id), c = colorOf(l), w = lw() * (isSel ? 1.9 : 1.3) * (l.wm || 1);
       g.strokeStyle = c; g.fillStyle = c;
+      if (l.pc) { drawPc(g, l, c, w, isSel, M); return; }
       if (isPoly(l)) {
         g.lineWidth = w; g.setLineDash(dashFor(l, w));
         g.beginPath(); l.pts.forEach((p, i) => i ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1])); g.stroke(); g.setLineDash([]);
@@ -1836,8 +2233,8 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
     if (l) { const xb = $('#lbExtend'), on = l.extend === 'both'; xb.hidden = !l.rel || l.type !== 'straight'; xb.classList.toggle('on', on); xb.setAttribute('aria-pressed', String(on)); } else $('#lbExtend').hidden = true;
     if (l) {
       const st = (q, dis, on, hide) => { const b = $(q); b.hidden = !!hide; b.disabled = !!dis; b.classList.toggle('on', !!on); b.setAttribute('aria-pressed', String(!!on)); };
-      st('#lbBend', l.type === 'free' || l.rel, l.type === 'curve');
-      $('#lbBend').title = l.type === 'curve' ? 'Make straight again' : 'Add a bend point';
+      st('#lbBend', (l.type === 'free' && !l.pc) || l.rel, l.type === 'curve' || (l.pc && S.ptEdit === l.id));
+      $('#lbBend').title = l.pc ? (S.ptEdit === l.id ? 'Done editing points' : 'Edit points: drag the outline\'s points') : l.type === 'curve' ? 'Make straight again' : 'Add a bend point';
       st('#lbUnlink', false, false, !l.rel);
       st('#lbGroup', false, !!l.group); $('#lbGroup').title = l.group ? 'Ungroup' : 'Group with other lines';
       st('#lbFlipAcross', l.type !== 'straight', false);
@@ -2525,6 +2922,7 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
     g.setTransform(1, 0, 0, 1, 0, 0); g.globalCompositeOperation = 'source-over'; g.globalAlpha = 1;
     g.clearRect(0, 0, pw, ph);
     if (S.step !== 'project') { pdfC.style.visibility = ''; return; }
+    if (S.sheetOff) { pdfC.style.visibility = 'hidden'; return; }
     const M = P(), bg = rgb(M.bg), line = rgb(M.line);
     g.save(); g.scale(K, K); g.lineJoin = 'round';
     const cur = curPiece(), W = pieceC.width / K, Hh = pieceC.height / K;
@@ -3232,11 +3630,148 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
     clearTimeout(PW.armT); PW.armT = setTimeout(pwDisarm, 3000);
   }
   $('#pwCancel').addEventListener('click', pwCancel);
+  /* ---------- ✦ Find for me, with Claude (v137) ----------
+     Only where the app runs as an artifact on claude.ai (window.claude exists there): Claude looks at the sheet and
+     says which shapes are pieces, roughly where each one's outline runs, and what it's called. The app then takes the
+     exact closed areas under each rough outline, just as if you'd tapped them with Fill, so the piece follows the
+     designer's lines, not Claude's sketch. On the website the button keeps the app's own finder. */
+  const AI = { sample: null, imgs: false, busy: null };
+  try {
+    if (window.claude && typeof window.claude.use === 'function') window.claude.use('sample').then(async s => {
+      if (!s) return;
+      const lim = await s.limits().catch(() => null);
+      AI.sample = s; AI.imgs = lim && lim.images ? lim.images.maxCount : 0;
+      syncAiUI();
+    }).catch(() => {});
+  } catch {}
+  function syncAiUI() {
+    const b = $('#pwFind'); if (!b) return;
+    if (AI.sample && AI.imgs) b.title = 'Claude looks at the sheet and marks the pieces for you (replaces your pieces)';
+  }
+  // the sheet as pictures: the whole sheet with a 0–100 grid to point with, plus closer views for reading the labels
+  async function sheetImages(maxTiles) {
+    const b = S.base, W = b.width, H = b.height, toBlob = c => new Promise(r => c.toBlob(r, 'image/jpeg', 0.9));
+    const fit = (w, h, mp) => { const s = Math.min(1, Math.sqrt(mp / (w * h))); return [Math.round(w * s), Math.round(h * s)]; };
+    const [fw, fh] = fit(W, H, 1.2e6), full = document.createElement('canvas'); full.width = fw; full.height = fh;
+    const g = full.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, fw, fh); g.imageSmoothingQuality = 'high'; g.drawImage(b, 0, 0, fw, fh);
+    g.strokeStyle = 'rgba(0,120,255,0.35)'; g.fillStyle = 'rgb(0,90,220)'; g.lineWidth = 1; g.font = '11px sans-serif';
+    for (let k = 1; k < 10; k++) {
+      const x = fw * k / 10, y = fh * k / 10;
+      g.beginPath(); g.moveTo(x, 0); g.lineTo(x, fh); g.moveTo(0, y); g.lineTo(fw, y); g.stroke();
+      g.fillText(String(k * 10), x + 2, 11); g.fillText(String(k * 10), 2, y - 2);
+    }
+    const out = [await toBlob(full)]; freeCanvas(full);
+    const tiles = [];
+    if (maxTiles >= 4) { const cols = W > H ? 3 : 2, rows = W > H ? 2 : 3, n = Math.min(maxTiles, cols * rows) >= cols * rows ? [cols, rows] : [2, 2]; for (let r = 0; r < n[1]; r++) for (let c = 0; c < n[0]; c++) tiles.push([c / n[0], r / n[1], 1 / n[0], 1 / n[1]]); }
+    for (const [x, y, w, h] of tiles) {
+      const sx = x * W, sy = y * H, sw = w * W, sh = h * H, [tw, th] = fit(sw, sh, 1.2e6), t = document.createElement('canvas'); t.width = tw; t.height = th;
+      const tg = t.getContext('2d'); tg.fillStyle = '#fff'; tg.fillRect(0, 0, tw, th); tg.drawImage(b, sx, sy, sw, sh, 0, 0, tw, th);
+      out.push(await toBlob(t)); freeCanvas(t);
+    }
+    return { blobs: out, tiles };
+  }
+  function aiPrompt(tiles, mm) {
+    const t = tiles.map((q, i) => `image ${i + 2}: x ${Math.round(q[0] * 100)}–${Math.round((q[0] + q[2]) * 100)}, y ${Math.round(q[1] * 100)}–${Math.round((q[1] + q[3]) * 100)}`).join('; ');
+    return `You are helping a home sewist mark the pattern pieces on a sewing-pattern PDF sheet (${mm[0]} × ${mm[1]} mm), so each piece can be projected and cut on its own.
+
+Image 1 is the whole sheet, with a faint blue grid: x and y run from 0 (left / top) to 100 (right / bottom).${tiles.length ? ' The other images are closer views of parts of the same sheet, for reading the small labels: ' + t + ' (in image 1\'s 0–100 coordinates).' : ''}
+
+Find every pattern piece: a closed shape to be cut from fabric (fronts, backs, sleeves, collars, cuffs, facings, waistbands, pockets, yokes, plackets, bands...). Pieces may be drawn overlapping or nested inside each other (a pocket bag drawn on top of a trouser front); list each piece separately. Do NOT list: test squares, size or measurement tables, legends, logos, title blocks, layout diagrams, instruction text boxes, or the page border.
+
+For each piece give:
+- name: as printed on the piece (keep the pattern's own language, e.g. "Передняя половинка"); if nothing is printed, a short plain description such as "Pocket bag"
+- cut: what's printed about how many to cut / fold (e.g. "2 дет.", "Cut 1 on fold"), or "" if nothing
+- outline: 10 to 30 points [x, y] in image 1's 0–100 coordinates, going round the piece's OUTERMOST line (the cutting line, outside the seam allowance), following its corners and curves as closely as you can.
+
+Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]}]}`;
+  }
+  // every closed area of the sheet (as Fill sees them), labelled once per sheet
+  function sheetRegions() {
+    const G = fillGrid();
+    if (G.regions) return G.regions;
+    const { gw, gh, wall } = G, N = gw * gh, lab = new Int32Array(N), info = [null];
+    let n = 0; const st = [];
+    for (let k0 = 0; k0 < N; k0++) {
+      if (wall[k0] || lab[k0]) continue;
+      n++; let c = 0, x0 = gw, y0 = gh, x1 = 0, y1 = 0; st.push(k0); lab[k0] = n;
+      while (st.length) {
+        const k = st.pop(), x = k % gw, y = (k - x) / gw; c++;
+        if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y;
+        if (x > 0 && !wall[k - 1] && !lab[k - 1]) { lab[k - 1] = n; st.push(k - 1); }
+        if (x < gw - 1 && !wall[k + 1] && !lab[k + 1]) { lab[k + 1] = n; st.push(k + 1); }
+        if (y > 0 && !wall[k - gw] && !lab[k - gw]) { lab[k - gw] = n; st.push(k - gw); }
+        if (y < gh - 1 && !wall[k + gw] && !lab[k + gw]) { lab[k + gw] = n; st.push(k + gw); }
+      }
+      // the open paper round the pieces spans (nearly) the whole sheet
+      const paper = (x1 - x0) > gw * 0.85 || (y1 - y0) > gh * 0.85 || c > N * 0.35;
+      // thin areas running round a piece are its seam allowance
+      info.push({ c, paper, thin: c / ((x1 - x0 + 1) + (y1 - y0 + 1)) < 12 });
+    }
+    G.regions = { lab, info };
+    return G.regions;
+  }
+  // a rough outline (sheet mm) → the closed areas mostly inside it, as Fill cells
+  function cellsUnder(poly) {
+    const G = fillGrid(), { gw, gh } = G, { lab, info } = sheetRegions();
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    poly.forEach(q => { x0 = Math.min(x0, q[0]); y0 = Math.min(y0, q[1]); x1 = Math.max(x1, q[0]); y1 = Math.max(y1, q[1]); });
+    const pad = 8, bx0 = Math.max(0, Math.floor(x0 - pad)), by0 = Math.max(0, Math.floor(y0 - pad)), bx1 = Math.min(gw - 1, Math.ceil(x1 + pad)), by1 = Math.min(gh - 1, Math.ceil(y1 + pad));
+    const w = bx1 - bx0 + 1, h = by1 - by0 + 1; if (w < 2 || h < 2) return [];
+    // the outline, widened 8 mm (Claude's sketch is rough), drawn on a mask
+    const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+    const g = cv.getContext('2d'); g.fillStyle = g.strokeStyle = '#000'; g.lineJoin = 'round'; g.lineWidth = pad * 2;
+    g.beginPath(); poly.forEach((q, i) => i ? g.lineTo(q[0] - bx0, q[1] - by0) : g.moveTo(q[0] - bx0, q[1] - by0)); g.closePath(); g.fill(); g.stroke();
+    const d = g.getImageData(0, 0, w, h).data; freeCanvas(cv);
+    const inside = new Map();
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { if (d[(y * w + x) * 4 + 3] < 128) continue; const r = lab[(y + by0) * gw + x + bx0]; if (r && !info[r].paper) inside.set(r, (inside.get(r) || 0) + 1); }
+    // areas mostly under the outline; a seam-allowance strip only needs to be under it for a good part of its length
+    const keep = new Set(); inside.forEach((c, r) => { if (c >= info[r].c * (info[r].thin ? 0.4 : 0.7)) keep.add(r); });
+    const cells = [];
+    for (let y = by0; y <= by1; y++) for (let x = bx0; x <= bx1; x++) { const k = y * gw + x; if (keep.has(lab[k])) cells.push(k); }
+    return cells;
+  }
+  async function aiFind() {
+    if (AI.busy) { AI.busy.abort(); return; }
+    const b = $('#pwFind'), old = '✦ Find for me', ctrl = new AbortController(); AI.busy = ctrl;
+    b.textContent = '✦ Claude is looking… · stop'; b.classList.add('on');
+    const W = S.base.width / K, H = S.base.height / K;
+    try {
+      const { blobs, tiles } = await sheetImages(Math.max(0, (AI.imgs || 1) - 1));
+      const res = await AI.sample.json(aiPrompt(tiles, [Math.round(W), Math.round(H)]), { images: blobs, modelTier: 'complex', signal: ctrl.signal });
+      const list = (res && Array.isArray(res.pieces) ? res.pieces : []).filter(p => p && Array.isArray(p.outline) && p.outline.length >= 3);
+      if (!list.length) { toast('Claude didn\'t find any pieces on this sheet · mark them by hand'); return; }
+      const made = [];
+      pwAct(() => {
+        selClear(); PW.redoPiece = null; S.pieces = []; S.curPiece = -1;
+        list.forEach(q => {
+          const poly = q.outline.map(v => [Math.max(0, Math.min(100, +v[0] || 0)) / 100 * W, Math.max(0, Math.min(100, +v[1] || 0)) / 100 * H]);
+          const cells = cellsUnder(poly); if (cells.length < 200) return;
+          selClear(); selApply(cells, true, true);
+          const p = fillMakePiece(true); if (!p) return;
+          let nm = String(q.name || '').trim().slice(0, 60); if (nm && S.pieces.some(o => o !== p && o.name === nm)) { let k = 2; while (S.pieces.some(o => o.name === nm + ' ' + k)) k++; nm += ' ' + k; }
+          p.name = nm; p.cutInfo = String(q.cut || '').trim().slice(0, 40); p.ai = true;
+          made.push(p);
+        });
+        FILL.changed = true;
+      });
+      S.oneAt = PW.prevOneAt; PW.cur = -1; pwTiles(); pwDraw();
+      toast(made.length ? `Claude found ${made.length} piece${made.length > 1 ? 's' : ''} · check each one (tap a tile to fix it), then Done` : 'Claude\'s outlines didn\'t match closed areas on the sheet · mark them by hand');
+    } catch (err) {
+      const c = err && err.code;
+      if (c === 'cancelled' || (err && err.name === 'AbortError')) toast('Stopped');
+      else if (c === 'not_granted') toast('Claude wasn\'t allowed for this page · using the app\'s own finder'), findPiecesNow();
+      else if (c === 'rate_limited' || c === 'queue_overflow') toast('Claude is busy or out of usage for now · try again later');
+      else { console.error(err); toast('Claude couldn\'t finish (' + (c || 'error') + ') · try again, or mark the pieces by hand'); }
+    } finally { AI.busy = null; b.textContent = old; b.classList.remove('on'); }
+  }
+  function findPiecesNow() { pwAct(() => { selClear(); PW.redoPiece = null; findPieces(); FILL.changed = true; }); S.oneAt = PW.prevOneAt; PW.cur = -1; pwTiles(); pwDraw(); }
   $('#pwFind').addEventListener('click', e => {
     const b = e.currentTarget;
+    if (AI.busy) { AI.busy.abort(); return; }
     if (S.pieces.length && !b.dataset.armed) { b.dataset.armed = '1'; b.textContent = 'Replace your pieces?'; setTimeout(() => { delete b.dataset.armed; b.textContent = '✦ Find for me'; }, 3000); return; }
     delete b.dataset.armed; b.textContent = '✦ Find for me';
-    pwAct(() => { selClear(); PW.redoPiece = null; findPieces(); FILL.changed = true; }); S.oneAt = PW.prevOneAt; PW.cur = -1; pwTiles(); pwDraw();
+    if (AI.sample && AI.imgs) { aiFind(); return; }
+    findPiecesNow();
   });
   $$('[data-pwt]').forEach(b => b.addEventListener('click', () => pwSetTool(b.dataset.pwt)));
   $$('[data-pwm]').forEach(b => b.addEventListener('click', () => pwSetMode(b.dataset.pwm)));
@@ -3490,7 +4025,8 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
       buildLayers();
       $('#pageRow').hidden = pdf.numPages < 2; S.asm = null; ASM.last = null;
       S.rot = 0; S.flip = false; S.pivotWhole = null; S.flipWhole = null; S.matSel = null; S.pieces = []; S.curPiece = -1; S.oneAt = false; $('#oneAtChk').checked = false;
-      S.lines = S.lines.filter(l => !l.pinned); S.foldId = null;
+      S.lines = S.lines.filter(l => !l.pinned); S.foldId = null; S.sheetOff = false; S.ptEdit = null; VEC.key = null; VEC.data = null;
+      await loadMarks(id);
       HIST.undo = []; HIST.redo = []; HIST.last = null;
       if (resume) {
         S.pageNum = Math.min(Math.max(1, rec.pageNum || 1), pdf.numPages);
@@ -3556,6 +4092,12 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
       clear: st => run(st, 'readwrite', s => s.clear())
     };
   })();
+  // a cleared project keeps the shelf of separated pieces (they belong to no project)
+  async function clearWorkKeepShelf() {
+    const keep = ((await DB.all('work').catch(() => [])) || []).filter(r => r && r.shelf);
+    await DB.clear('work');
+    for (const r of keep) await DB.put('work', 'shelf|' + r.file + '|' + r.pid, r).catch(() => {});
+  }
   const SAVE = { id: null, meta: null, lastSig: '', timer: null, ready: false, failed: false, asked: false };
   function saveFailed() {
     if (SAVE.failed) return; SAVE.failed = true;
@@ -3566,6 +4108,7 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
     clearTimeout(SAVE.timer);
     if (!SAVE.ready || !SAVE.id || !S.pdf) return;
     const state = snapSafe(); if (!state) return;
+    saveMarks();
     const work = {
       state, asm: S.asm || null, pageNum: S.pageNum, pivotWhole: S.pivotWhole || null, flipWhole: S.flipWhole || null,
       asmLast: ASM.last && ASM.last.file === S.fileName ? { draft: ASM.last.draft, v: ASM.last.v } : null
@@ -3586,7 +4129,7 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
   async function reopenPattern(id, quiet) {
     try {
       const [rec, buf] = await Promise.all([DB.get('work', id), DB.get('files', id)]);
-      if (!rec || !buf) { if (pget('pp_last') === id) pset('pp_last', ''); if (!quiet) toast('That PDF is no longer saved on this device · open it again from your files'); return false; }
+      if (!rec || !buf || rec.shelf) { if (pget('pp_last') === id) pset('pp_last', ''); if (!quiet) toast('That PDF is no longer saved on this device · open it again from your files'); return false; }
       const file = new File([buf], rec.name, { type: 'application/pdf' });
       return await loadPdf(file, rec);
     } catch (err) { if (!quiet) toast('Could not open the saved pattern'); return false; }
@@ -3609,7 +4152,7 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
     let main = list.find(r => r.slot === 'main') || list.find(r => !r.slot) || null;
     let lining = list.find(r => r.slot === 'lining' && (!main || r.id !== main.id)) || null;
     // anything else (older saves from before projects) is tidied away
-    for (const r of list) if (r !== main && r !== lining) { try { await DB.del('work', r.id); await DB.del('files', r.id); } catch {} }
+    for (const r of list) if (r !== main && r !== lining) { try { await DB.del('work', r.id); await DB.del('files', r.id); await DB.del('work', r.id + '#m'); } catch {} }
     PROJ.main = main; PROJ.lining = lining;
     return list;
   }
@@ -3652,7 +4195,7 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
       { label: 'Replace lining PDF…', fn: () => pickFile('lining') },
       { label: 'Remove lining…', danger: true, keepOpen: true, fn: () => openMenu('Remove the lining?', [
         { label: 'Remove · its pieces and lines go', danger: true, fn: async () => {
-          try { await DB.del('work', r.id); await DB.del('files', r.id); } catch { toast('Could not remove it'); return; }
+          try { await DB.del('work', r.id); await DB.del('files', r.id); DB.del('work', r.id + '#m').catch(() => {}); } catch { toast('Could not remove it'); return; }
           if (r.id === SAVE.id) { SAVE.id = null; SAVE.ready = false; }
           if (pget('pp_last') === r.id) pset('pp_last', PROJ.main ? PROJ.main.id : '');
           toast('Lining removed from the project'); renderPatternList();
@@ -3665,7 +4208,7 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
   function pickFile(mode) { PROJ.mode = mode; PROJ.ok = true; const inp = $('#pdfInput'); inp.value = ''; inp.click(); setTimeout(() => { PROJ.ok = false; }, 1000); }
   async function startNewProject(file) {
     clearTimeout(SAVE.timer); SAVE.ready = false; SAVE.id = null; SAVE.lastSig = '';
-    try { await DB.clear('work'); await DB.clear('files'); } catch {}
+    try { await clearWorkKeepShelf(); await DB.clear('files'); } catch {}
     PROJ.main = PROJ.lining = null; pset('pp_last', '');
     await loadPdf(file, null, 'main');
     renderPatternList();
@@ -3674,7 +4217,7 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
     if (!PROJ.main) { await startNewProject(file); return; }
     const old = PROJ.lining;
     const ok = await loadPdf(file, null, 'lining');
-    if (ok && old && old.id !== SAVE.id && old.id !== PROJ.main.id) { try { await DB.del('work', old.id); await DB.del('files', old.id); } catch {} }
+    if (ok && old && old.id !== SAVE.id && old.id !== PROJ.main.id) { try { await DB.del('work', old.id); await DB.del('files', old.id); await DB.del('work', old.id + '#m'); } catch {} }
     if (ok) toast(SAVE.meta && SAVE.meta.slot === 'main' ? 'That PDF is already the main fabric' : 'Lining added · switch between them under Project');
     renderPatternList();
   }
@@ -4272,7 +4815,7 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
     const l = S.lines.find(x => x.id === S.foldId && x.type === 'straight');
     const fk = l && S.step === 'project' ? l.id : null;
     if (fk !== lastFold) { lastFold = fk; drawPieces(); }
-    const on = !!l && S.step === 'project';
+    const on = !!l && S.step === 'project' && !S.sheetOff;
     mirClip.hidden = !on;
     patClip.style.clipPath = ''; mirClip.style.clipPath = '';
     const fb = $('#foldBtn'); if (fb) { const pr = !!l && S.selId === l.id; fb.setAttribute('aria-pressed', String(pr)); fb.classList.toggle('on', pr); }
@@ -4477,6 +5020,7 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
     if (S.pick) {
       let best = null, bd = pxToMm(e.pointerType !== 'mouse' ? 26 : 14, [e.clientX, e.clientY]);
       S.lines.forEach(l => { const pts = ptsOf(l); for (let i = 1; i < pts.length; i++) { const d = segDist(p0, pts[i - 1], pts[i]); if (d < bd) { bd = d; best = l; } } });
+      if (!best) best = pcAt(p0);
       if (best) togglePick(best);
       return null;
     }
@@ -4822,6 +5366,7 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
         };
       }
     }
+    { const pg = pcPointGesture(e, p0); if (pg) return pg; }
     // ends of straight lines (selected line first)
     let best = null, bd = endTol;
     const order = [selLine(), ...S.lines].filter(Boolean);
@@ -4849,6 +5394,7 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
       const pts = isPoly(l) ? l.pts : [l.a, l.b];
       for (let i = 1; i < pts.length; i++) { const d = segDist(p0, pts[i - 1], pts[i]); if (d < hd) { hd = d; hit = l; } }
     });
+    if (!hit && S.tool === 'move') hit = pcAt(p0);
     if (!hit) return null;
     const l = hit, grp = l.group ? S.lines.filter(x => x.group === l.group) : [l];
     const orig = grp.map(x => ({ x, cp: x.type === 'curve' ? curveFlat(x).map(q => q.slice()) : null, a: x.a && x.a.slice(), b: x.b && x.b.slice(), pts: x.pts && x.pts.map(q => q.slice()) })).sort((p, q) => (p.x.rel ? 1 : 0) - (q.x.rel ? 1 : 0));
@@ -5013,7 +5559,7 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
       const pts = isPoly(l) ? l.pts : [l.a, l.b];
       for (let i = 1; i < pts.length; i++) { const d = segDist(p, pts[i - 1], pts[i]); if (d < bd) { bd = d; best = l; } }
     });
-    return best;
+    return best || pcAt(p);
   }
   // tap does one thing, a long press (or right-click) opens options
   function holdable(el, onTap, onHold) {
@@ -5051,6 +5597,7 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
     const first = menu.querySelector('button:not(:disabled)'); if (first) first.focus();
   }
   function lineMenu(l, x, y, alignRight) {
+    if (l.pc) return pcMenu(l, x, y, alignRight);
     S.selId = l.id; renderLineList(); drawLines();
     const straightOnly = l.type !== 'straight' ? 'Only for straight lines' : '';
     const sub = (title, opts) => openMenu(title, opts, x, y, alignRight, l.id);
@@ -5081,7 +5628,305 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
       { label: 'Delete', danger: true, fn: () => { S.lines.forEach(x => { if (x.rel && x.rel.ref === l.id) delete x.rel; }); S.lines = S.lines.filter(x => x !== l && !(isMarkStroke(l) && x.group === l.group)); if (S.selId === l.id) S.selId = null; if (S.foldId === l.id) S.foldId = null; renderLineList(); drawLines(); updateMirror(); } }
     ], x, y, alignRight, l.id);
   }
+  /* ---------- separate pieces (v137) ----------
+     Each marked piece can become its own object on the mat: an exact outline taken from the PDF's own drawn lines
+     (or traced from the marked area when the PDF has none, e.g. a scan or joined print-at-home pages), carrying the
+     piece's markings (grainline, notches, labels) with it. Separated pieces are ordinary objects: they show in
+     Objects, use the line bar, the turn handle and the rotation slider, and move, turn and flip on their own. */
+  const MARKS = new Map();           // line id → packed markings (kept out of undo; saved beside the work)
+  let marksSig = '';
+  const VEC = { key: null, data: null };
+  const isPc = l => !!(l && l.pc);
+  const layerSig = () => layerGroups().map(([, g]) => g.visible !== false ? 1 : 0).join('');
+  async function pageVectors() {
+    if (!S.pdf || S.asm) return null;
+    const key = S.fileName + '|' + S.pageNum + '|' + layerSig();
+    if (VEC.key === key) return VEC.data;
+    const page = await S.pdf.getPage(S.pageNum), vp = page.getViewport({ scale: PT_TO_MM });
+    const d = await NotchVec.extractVectors(page, pdfjsLib.OPS, S.occ, vp.transform);
+    d.sheet = [vp.width, vp.height];
+    VEC.key = key; VEC.data = d.segs >= 20 ? d : null;   // a scanned page has nothing to follow
+    return VEC.data;
+  }
+  // the marked area of a piece on a 1 mm grid, in sheet millimetres
+  function maskOf(p) {
+    if (p.shape) { const s = p.shape; return { bits: shapeBits(p).bits, w: s.w, h: s.h, x: s.x, y: s.y, cell: s.cell || 1 }; }
+    const pts = p.pts && p.pts.length > 2 ? p.pts : (() => { const [a, b, c, d] = p.box; return [[a, b], [c, b], [c, d], [a, d]]; })();
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    pts.forEach(q => { x0 = Math.min(x0, q[0]); y0 = Math.min(y0, q[1]); x1 = Math.max(x1, q[0]); y1 = Math.max(y1, q[1]); });
+    x0 = Math.floor(x0) - 3; y0 = Math.floor(y0) - 3;
+    const w = Math.ceil(x1 - x0) + 4, h = Math.ceil(y1 - y0) + 4, cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+    const g = cv.getContext('2d'); g.fillStyle = '#000'; g.beginPath(); pts.forEach((q, i) => i ? g.lineTo(q[0] - x0, q[1] - y0) : g.moveTo(q[0] - x0, q[1] - y0)); g.closePath(); g.fill();
+    const d = g.getImageData(0, 0, w, h).data, bits = new Uint8Array(w * h);
+    for (let i = 0; i < w * h; i++) bits[i] = d[i * 4 + 3] > 127 ? 1 : 0;
+    freeCanvas(cv);
+    return { bits, w, h, x: x0, y: y0, cell: 1 };
+  }
+  const sepOf = (p, file) => S.lines.find(l => l.pc && l.pc.pid === p.id && l.pc.file === (file || S.fileName));
+  const newPcId = () => 'pc' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  async function separatePieces(list) {
+    if (!pdfC.width || !S.pieces.length) return;
+    list = list.filter(p => !sepOf(p));
+    if (!list.length) { setSheet(false); return; }
+    toast('Separating ' + (list.length > 1 ? list.length + ' pieces' : '"' + pName(list[0]) + '"') + '…');
+    await new Promise(r => setTimeout(r, 30));
+    let vec = null;
+    try { vec = await pageVectors(); } catch (err) { console.error(err); }
+    const made = []; let traced = 0;
+    for (const p of list) {
+      let r = null;
+      try { const m = maskOf(p); r = vec ? NotchVec.buildOutline(vec, m) : NotchVec.traceOutline(m, null); } catch (err) { console.error(err); }
+      if (!r || !r.pts || r.pts.length < 3) continue;
+      if (r.kind === 'traced') traced++;
+      const sheet = r.pts.concat([r.pts[0].slice()]), world = sheet.map(c => toWorld(canvasToLocal(c)));
+      const l = { id: newPcId(), type: 'free', name: pName(p), pts: world,
+        pc: { pid: p.id, file: S.fileName, kind: r.kind, pts0: sheet.map(q => [Math.round(q[0] * 100) / 100, Math.round(q[1] * 100) / 100]) },
+        color: 'pattern', dash: 'solid', wm: 1, extend: 'none', ruler: false, noLabel: true, rot: S.rot, cut: !!p.cut };
+      pin(l, true);
+      S.lines.push(l); MARKS.set(l.id, NotchVec.packMarks(r.marks || [])); made.push(l); shelve(l);
+    }
+    if (!made.length) { toast('Could not make outlines for those pieces'); return; }
+    S.oneAt = false; $('#oneAtChk').checked = false; S.matSel = null; S.selId = null;
+    setSheet(false, true);
+    renderLineList(); renderPieces(); drawLines(); record(); saveMarks();
+    const n = made.length;
+    toast((n > 1 ? n + ' pieces' : '"' + made[0].name + '"') + ' separated · drag one to move it on its own' +
+      (traced ? (traced === n ? ' · this PDF has no drawn lines to follow, so the outlines are traced' : ' · ' + traced + ' traced from the marked area') : ''));
+  }
+  // the PDF sheet itself: hidden once pieces are separated (they show on their own), back with the checkbox
+  function setSheet(show, quiet) {
+    S.sheetOff = !show;
+    drawPieces(); syncSepUI(); record();
+    if (!quiet) toast(show ? 'PDF sheet showing' : 'PDF sheet hidden · separated pieces only');
+  }
+  function putBack(lines) {
+    const ids = new Set(lines.map(l => l.id));
+    S.lines = S.lines.filter(l => !ids.has(l.id)); if (ids.has(S.selId)) S.selId = null; if (ids.has(S.ptEdit)) S.ptEdit = null;
+    if (!S.lines.some(l => l.pc && l.pc.file === S.fileName)) S.sheetOff = false;
+    renderLineList(); renderPieces(); drawPieces(); drawLines(); syncSepUI(); record(); saveMarks();
+  }
+  function syncSepUI() {
+    const box = $('#sepBox'); if (!box) return;
+    const mine = S.lines.filter(l => l.pc && l.pc.file === S.fileName), any = S.pieces.length > 0 && !!pdfC.width;
+    box.hidden = !any && !mine.length;
+    const left = S.pieces.filter(p => !sepOf(p)).length;
+    $('#sepBtn').hidden = !left;
+    $('#sepBtn').textContent = mine.length ? 'Separate the other ' + (left > 1 ? left + ' pieces' : 'piece') : 'Separate pieces';
+    $('#sheetRow').hidden = !mine.length && !S.sheetOff;
+    $('#sheetChk').checked = !S.sheetOff;
+    $('#sepBack').hidden = !mine.length;
+    $('#sepBack').textContent = 'Put pieces back on the sheet';
+    $('#sepBack').classList.remove('confirm');
+  }
+  // where a separated piece is now: its original outline fitted onto its current points (turn, move, mirror)
+  function pcFit(l) {
+    const c = l._fit;
+    if (c && c.pts === l.pts && c.n === l.pts.length) return c.M;
+    const M = NotchVec.fitRigid(l.pc.pts0, l.pts);
+    l._fit = { pts: l.pts, n: l.pts.length, M };
+    return M;
+  }
+  const unpacked = new Map();
+  function marksOf(l) {
+    const raw = MARKS.get(l.id); if (!raw) return null;
+    let u = unpacked.get(raw); if (!u) { u = NotchVec.unpackMarks(raw); unpacked.set(raw, u); }
+    return u;
+  }
+  function drawPc(g, l, c, w, isSel, M) {
+    const pts = l.pts, A = M.acc;
+    g.save();
+    if (l.cut && S.dimCut) g.globalAlpha = 0.35;
+    if (isSel) { g.fillStyle = A; g.globalAlpha *= 0.07; g.beginPath(); pts.forEach((p, i) => i ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1])); g.closePath(); g.fill(); g.globalAlpha = l.cut && S.dimCut ? 0.35 : 1; }
+    // the markings move with the outline
+    const mk = marksOf(l), F = mk && mk.length ? pcFit(l) : null;
+    if (F) {
+      g.save(); g.transform(F[0], F[1], F[2], F[3], F[4], F[5]);
+      g.strokeStyle = c; g.fillStyle = c; g.lineWidth = Math.max(0.3, w * 0.55);
+      [false, true].forEach(dash => {
+        g.setLineDash(dash ? [2.4, 1.6] : []); g.beginPath(); let any = false;
+        mk.forEach(m => { if (m.dash !== dash || m.fill) return; any = true; m.pts.forEach((q, i) => i ? g.lineTo(q[0], q[1]) : g.moveTo(q[0], q[1])); });
+        if (any) g.stroke();
+      });
+      g.setLineDash([]); g.beginPath(); let anyF = false;
+      mk.forEach(m => { if (!m.fill) return; anyF = true; m.pts.forEach((q, i) => i ? g.lineTo(q[0], q[1]) : g.moveTo(q[0], q[1])); g.closePath(); });
+      if (anyF) g.fill();
+      g.restore();
+    }
+    g.strokeStyle = c; g.lineWidth = w; g.setLineDash(dashFor(l, w));
+    g.beginPath(); pts.forEach((p, i) => i ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1])); g.closePath(); g.stroke(); g.setLineDash([]);
+    if (showLabel(l)) { const b = bboxOf([l]); label(g, l.name + (l.cut ? ' · cut' : ''), [(b[0] + b[2]) / 2, (b[1] + b[3]) / 2], c); }
+    // points you can drag, while editing points
+    if (isSel && S.ptEdit === l.id && S.H) {
+      const sc = toScreen(pts[0]), mpp = sc ? pxToMm(1, sc) : 0.5, r = 4.5 * mpp;
+      g.lineWidth = lw() * 0.8; g.strokeStyle = A; g.fillStyle = rgb(P().bg);
+      for (let k = 0; k < pts.length - 1; k++) { const q = pts[k]; g.fillRect(q[0] - r, q[1] - r, r * 2, r * 2); g.strokeRect(q[0] - r, q[1] - r, r * 2, r * 2); }
+    }
+    g.restore();
+  }
+  function pcInside(l, p) { return NotchVec.inPoly(l.pts, p[0], p[1]); }
+  // topmost separated piece under a point
+  function pcAt(p) { for (let i = S.lines.length - 1; i >= 0; i--) { const l = S.lines[i]; if (l.pc && pcInside(l, p)) return l; } return null; }
+  // drag, add or remove a point of the selected piece's outline (Edit points)
+  function pcPointGesture(e, p0) {
+    const l = selLine(); if (!l || !l.pc || S.ptEdit !== l.id || S.tool !== 'move') return null;
+    const touch = e.pointerType !== 'mouse', tol = pxToMm(touch ? 22 : 10, [e.clientX, e.clientY]), pts = l.pts, n = pts.length - 1;
+    let k = -1, bd = tol;
+    for (let i = 0; i < n; i++) { const d = Math.hypot(pts[i][0] - p0[0], pts[i][1] - p0[1]); if (d < bd) { bd = d; k = i; } }
+    const now = Date.now(), last = S.lastPtTap;
+    const Minv = NotchVec.invert(pcFit(l)), toSheet = q => NotchVec.apply(Minv, q[0], q[1]);
+    const done = () => { l._fit = null; lineCommit(l); renderLineList(); drawLines(); record(); };
+    if (k < 0) {
+      // double tap on the outline: a new point there
+      let best = null, bd2 = tol;
+      for (let i = 0; i < n; i++) { const d = segDist(p0, pts[i], pts[i + 1]); if (d < bd2) { bd2 = d; best = i; } }
+      if (best == null) return null;
+      if (last && last.id === l.id && last.k === 'edge' && now - last.t < 380) {
+        S.lastPtTap = null; pts.splice(best + 1, 0, p0.slice()); l.pc.pts0.splice(best + 1, 0, toSheet(p0)); done(); toast('Point added');
+        return { move() {}, up() {}, abort() {} };
+      }
+      S.lastPtTap = { id: l.id, k: 'edge', t: now };
+      return null;
+    }
+    if (last && last.id === l.id && last.k === k && now - last.t < 380) {
+      S.lastPtTap = null;
+      if (n <= 3) { toast('A piece needs at least three points'); return { move() {}, up() {}, abort() {} }; }
+      pts.splice(k, 1); l.pc.pts0.splice(k, 1);
+      if (k === 0) { pts[pts.length - 1] = pts[0].slice(); l.pc.pts0[l.pc.pts0.length - 1] = l.pc.pts0[0].slice(); }
+      done(); toast('Point removed');
+      return { move() {}, up() {}, abort() {} };
+    }
+    const orig = pts[k].slice(), orig0 = l.pc.pts0[k].slice();
+    let moved = false;
+    const set = q => { pts[k] = q; l.pc.pts0[k] = toSheet(q); if (k === 0) { pts[n] = q.slice(); l.pc.pts0[n] = l.pc.pts0[0].slice(); } l._fit = null; lineCommit(l); };
+    S.snapSkip = new Set([l.id]);
+    return {
+      move: ev => { moved = true; set(snapped(toMm(ev.clientX, ev.clientY), ev)); drawLines(); },
+      up: () => { S.snapHint = null; S.snapSkip = null; if (!moved) S.lastPtTap = { id: l.id, k, t: Date.now() }; done(); },
+      abort: () => { S.snapHint = null; S.snapSkip = null; set(orig); l.pc.pts0[k] = orig0; drawLines(); }
+    };
+  }
+  function togglePtEdit(l) {
+    if (!l || !l.pc) return;
+    S.ptEdit = S.ptEdit === l.id ? null : l.id; S.selId = l.id;
+    if (S.ptEdit) { if (S.tool !== 'move') pickTool('move'); toast('Drag a point to move it · double-tap the outline to add one, a point to remove it'); }
+    renderLineList(); drawLines(); syncLineBar();
+  }
+  // mirror the selected objects round their middle (left to right, or top to bottom)
+  function flipSel(phi) {
+    const m = selMembers(); if (!m.length) return false;
+    const [x0, y0, x1, y1] = bboxOf(m), cx = (x0 + x1) / 2, cy = (y0 + y1) / 2, lr = phi === 90;
+    const f = q => lr ? [2 * cx - q[0], q[1]] : [q[0], 2 * cy - q[1]];
+    m.forEach(l => {
+      if (l.type === 'curve') curveSet(l, curveFlat(l).map(f)); else if (l.pts) l.pts = l.pts.map(f); else { l.a = f(l.a); l.b = f(l.b); }
+      l.rot = Math.round(norm180(lr ? 180 - (l.rot || 0) : -(l.rot || 0)) * 100) / 100; l._fit = null; lineCommit(l);
+    });
+    drawLines(); record(); syncRotUI();
+    toast(`Flipped "${m.length > 1 ? 'the group' : m[0].name}" ${lr ? 'left to right' : 'top to bottom'}`);
+    return true;
+  }
+  function duplicatePc(l) {
+    const c = JSON.parse(JSON.stringify(l)); delete c._fit;
+    c.id = newPcId(); c.name = uniqueName(l.name); c.cut = false; c.pc.dup = true; delete c.group;
+    c.pts = c.pts.map(q => [q[0] + 25, q[1] + 25]);
+    if (MARKS.has(l.id)) MARKS.set(c.id, MARKS.get(l.id));
+    if (c.pinned) pin(c, true); if (c.screen) delete c.screen;
+    S.lines.push(c); S.selId = c.id; renderLineList(); drawLines(); record(); saveMarks();
+    toast('"' + c.name + '" added · drag it into place');
+  }
+  function uniqueName(base) {
+    const root = String(base).replace(/\s*\(\d+\)$/, ''); let k = 2;
+    while (S.lines.some(x => x.name === root + ' (' + k + ')')) k++;
+    return root + ' (' + k + ')';
+  }
+  function pcMenu(l, x, y, alignRight) {
+    S.selId = l.id; renderLineList(); drawLines();
+    const sub = (title, opts) => openMenu(title, opts, x, y, alignRight, l.id);
+    const back = { label: '← Back', keepOpen: true, fn: () => pcMenu(l, x, y, alignRight) };
+    const capital = k => k[0].toUpperCase() + k.slice(1);
+    const src = l.pc.file !== S.fileName ? ' · from ' + l.pc.file.replace(/\.pdf$/i, '') : '';
+    openMenu(l.name + src, [
+      { label: S.ptEdit === l.id ? 'Done editing points' : 'Edit points', fn: () => togglePtEdit(l) },
+      { label: 'Flip left to right', fn: () => { S.selId = l.id; flipSel(90); } },
+      { label: 'Flip top to bottom', fn: () => { S.selId = l.id; flipSel(0); } },
+      { label: 'Duplicate', fn: () => duplicatePc(l) },
+      { label: l.cut ? 'Mark as not cut' : 'Mark as cut', fn: () => { l.cut = !l.cut; const p = S.pieces.find(q => q.id === l.pc.pid && l.pc.file === S.fileName); if (p) { p.cut = l.cut; renderPieces(); } drawLines(); record(); } },
+      { label: 'Colour…', keepOpen: true, fn: () => sub('Colour', [back, { label: 'Same as pattern', current: !PCOL[l.color] && l.color !== 'custom', fn: () => { l.color = 'pattern'; drawLines(); renderLineList(); record(); } }, ...Object.keys(PCOL).map(k => ({ label: capital(k), current: (l.color || '') === k, fn: () => setStyle('sel', { color: k }) }))]) },
+      { label: 'Line style…', keepOpen: true, fn: () => sub('Line style', [back, ...DASHES.map(d => ({ label: d[2], current: (l.dash || 'solid') === d[0], fn: () => setStyle('sel', { dash: d[0] }) }))]) },
+      { label: 'Thickness…', keepOpen: true, fn: () => sub('Thickness', [back, ...WIDTHS.map(w => ({ label: w[1], current: (l.wm || 1) === w[0], fn: () => setStyle('sel', { wm: w[0] }) }))]) },
+      { label: (l.ruler ?? S.ruler) ? 'Hide measurements' : 'Show measurements', fn: () => { l.ruler = !(l.ruler ?? S.ruler); renderLineList(); drawLines(); record(); } },
+      { label: l.noLabel ? 'Show name on the mat' : 'Hide name on the mat', fn: () => { l.noLabel = !l.noLabel; renderLineList(); drawLines(); record(); } },
+      { label: l.screen ? 'Unpin · move with the pattern' : 'Pin to screen', fn: () => { screenPin(l, !l.screen); renderLineList(); drawLines(); } },
+      l.group ? { label: 'Ungroup', fn: () => ungroup(l) } : { label: 'Group with…', fn: () => startPick(l) },
+      { label: 'Rename', fn: () => { setPanel(true); if (S.tab !== 'pattern') go('project', 'pattern'); openFold('lines'); renderLineList(l.id); const f = document.getElementById('name-' + l.id); if (f) f.select(); } },
+      ...(l.pc.file === S.fileName ? [{ label: 'Put back on the sheet', fn: () => putBack([l]) }] : []),
+      { label: 'Delete', danger: true, fn: () => putBack([l]) }
+    ], x, y, alignRight, l.id);
+  }
+  // Every separated piece is also kept on a shelf on this device (beside the projects, so starting a new project
+  // doesn't lose it): from there it can be laid next to the pieces of any other pattern, to compare.
+  const shelfKey = (file, pid) => 'shelf|' + file + '|' + pid;
+  function shelve(l) {
+    if (!l.pc || l.pc.dup) return;
+    DB.put('work', shelfKey(l.pc.file, l.pc.pid), { shelf: true, file: l.pc.file, pid: l.pc.pid, name: l.name, kind: l.pc.kind, pts0: l.pc.pts0, marks: MARKS.get(l.id) || [], saved: Date.now() }).catch(() => {});
+  }
+  async function bringPiece(x, y) {
+    let all = [];
+    try { all = ((await DB.all('work')) || []).filter(r => r && r.shelf && r.file !== S.fileName && r.pts0); } catch {}
+    if (!all.length) {
+      openMenu('Piece from another pattern', [{ label: 'Nothing here yet · separate the pieces of another pattern, and they can be brought in here', disabled: 'Nothing to bring in yet', fn: () => {} }], x, y, true, 'bring');
+      return;
+    }
+    const byFile = new Map(); all.sort((a, b) => (b.saved || 0) - (a.saved || 0)).forEach(r => { if (!byFile.has(r.file)) byFile.set(r.file, []); byFile.get(r.file).push(r); });
+    const nice = f => f.replace(/\.pdf$/i, '');
+    const pickFile = () => openMenu('Piece from another pattern', [...byFile.keys()].map(f => ({ label: nice(f) + ' · ' + byFile.get(f).length, keepOpen: true, fn: () => pickPiece(f) })), x, y, true, 'bring');
+    const pickPiece = f => openMenu(nice(f), [
+      ...(byFile.size > 1 ? [{ label: '← Back', keepOpen: true, fn: pickFile }] : []),
+      ...byFile.get(f).map(r => ({ label: r.name, fn: () => importPc(r) })),
+      { label: 'Forget these pieces', danger: true, fn: async () => { for (const r of byFile.get(f)) { try { await DB.del('work', shelfKey(r.file, r.pid)); } catch {} } toast('Forgot the pieces of ' + nice(f)); } }
+    ], x, y, true, 'bring');
+    if (byFile.size === 1) pickPiece([...byFile.keys()][0]); else pickFile();
+  }
+  function importPc(r) {
+    const pts0 = r.pts0.map(q => q.slice());
+    let cx = 0, cy = 0; const n = pts0.length - 1; for (let k = 0; k < n; k++) { cx += pts0[k][0]; cy += pts0[k][1]; } cx /= n; cy /= n;
+    // into the middle of the free mat, the way it lay on its own sheet; it stays put when this pattern moves
+    const at = toMm(barSpace().mid, innerHeight / 2);
+    const l = { id: newPcId(), type: 'free', name: S.lines.some(x => x.name === r.name) ? uniqueName(r.name) : r.name,
+      pts: pts0.map(q => [q[0] - cx + at[0], q[1] - cy + at[1]]), pc: { pid: r.pid, file: r.file, kind: r.kind, pts0 },
+      color: 'pattern', dash: 'solid', wm: 1, extend: 'none', ruler: false, noLabel: true, rot: 0 };
+    MARKS.set(l.id, r.marks || []);
+    S.lines.push(l); S.selId = l.id; renderLineList(); drawLines(); record(); saveMarks();
+    toast('"' + l.name + '" from ' + r.file.replace(/\.pdf$/i, '') + ' · drag it beside your pieces to compare');
+  }
+  function saveMarks() {
+    if (!SAVE.id || !SAVE.ready) return;
+    const obj = {}; S.lines.forEach(l => { if (l.pc && MARKS.has(l.id)) obj[l.id] = MARKS.get(l.id); });
+    const sig = SAVE.id + ':' + Object.keys(obj).sort().join(',');
+    if (sig === marksSig) return;
+    marksSig = sig;
+    DB.put('work', SAVE.id + '#m', { marks: obj }).catch(() => { marksSig = ''; });
+  }
+  async function loadMarks(id) {
+    const keep = new Set(S.lines.map(l => l.id)); [...MARKS.keys()].forEach(k => { if (!keep.has(k)) MARKS.delete(k); }); marksSig = '';
+    try { const m = await DB.get('work', id + '#m'); if (m && m.marks) Object.entries(m.marks).forEach(([k, v]) => MARKS.set(k, v)); marksSig = id + ':' + Object.keys((m && m.marks) || {}).sort().join(','); } catch {}
+  }
+
+  $('#sepBtn').addEventListener('click', () => separatePieces(S.pieces.slice()));
+  $('#sheetChk').addEventListener('change', e => setSheet(e.target.checked));
+  $('#sepBack').addEventListener('click', e => {
+    const b = e.currentTarget;
+    if (!b.classList.contains('confirm')) { b.classList.add('confirm'); b.textContent = 'Tap again · moved and edited pieces go'; clearTimeout(b._t); b._t = setTimeout(syncSepUI, 3000); return; }
+    putBack(S.lines.filter(l => l.pc && l.pc.file === S.fileName)); toast('Pieces back on the sheet');
+  });
+  $('#bringBtn').addEventListener('click', e => { const r = e.currentTarget.getBoundingClientRect(); bringPiece(r.right, r.bottom + 4); });
+  { const _rp = renderPieces; renderPieces = function () {
+      const r = _rp.apply(this, arguments);
+      try { S.lines.forEach(l => { if (l.pc && !l.pc.dup && l.pc.file === S.fileName) { const p = S.pieces.find(q => q.id === l.pc.pid); if (p && !!p.cut !== !!l.cut) { l.cut = !!p.cut; drawLines(); } } }); syncSepUI(); } catch {}
+      return r;
+    }; }
+
   function pieceAt(world) {
+    if (S.sheetOff) return -1;
     if (!pdfC.width || !S.pieces.length) return -1;
     const c = worldToCanvas(world);
     const cand = S.oneAt ? (curPiece() ? [S.curPiece] : []) : S.pieces.map((_, i) => i).reverse();
@@ -5298,13 +6143,13 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
   /* ---------- undo / redo: every change to the pattern or screen ---------- */
   // A snapshot is taken shortly after anything changes; a drag or slider becomes one step.
   const HIST = { undo: [], redo: [], last: null, timer: null, restoring: false };
-  const LABELS = { fold: 'mirror image', pos: 'move', rot: 'rotation', flip: 'flip', lines: 'lines', pieces: 'pieces', layers: 'sizes', look: 'colours and lines', grid: 'grid', ruler: 'ruler' };
+  const LABELS = { sheet: 'PDF sheet', fold: 'mirror image', pos: 'move', rot: 'rotation', flip: 'flip', lines: 'lines', pieces: 'pieces', layers: 'sizes', look: 'colours and lines', grid: 'grid', ruler: 'ruler' };
   function snap() {
     const layers = {}; layerGroups().forEach(([id, g]) => layers[id] = g.visible !== false);
     return JSON.stringify({
       pos: [Math.round(S.pc.x * 10) / 10, Math.round(S.pc.y * 10) / 10], rot: S.rot, flip: S.flip,
       lines: S.lines, selId: S.selId, pieces: S.pieces.map(p => ({ ...p, nameCands: undefined })), curPiece: S.curPiece, oneAt: S.oneAt, dimCut: S.dimCut,
-      layers, fold: S.foldId, look: [S.bg, S.patCol, S.boost, S.patHex, S.gridHex], grid: [S.grid, S.gridSize, S.gridAlpha, S.gridCol], ruler: [S.ruler, S.lunit]
+      sheet: !!S.sheetOff, layers, fold: S.foldId, look: [S.bg, S.patCol, S.boost, S.patHex, S.gridHex], grid: [S.grid, S.gridSize, S.gridAlpha, S.gridCol], ruler: [S.ruler, S.lunit]
     });
   }
   function record() {
@@ -5328,7 +6173,7 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
     const d = JSON.parse(json);
     HIST.restoring = true;
     S.pc = { x: d.pos[0], y: d.pos[1] }; S.rot = d.rot; S.flip = d.flip;
-    S.lines = d.lines; S.selId = d.selId; S.foldId = d.fold || null; S.pieces = d.pieces; S.pieces.forEach(p => { if (/^Piece \d+$/i.test((p.name || '').trim())) p.name = ''; }); S.curPiece = d.curPiece; S.oneAt = d.oneAt; S.dimCut = d.dimCut;
+    S.lines = d.lines; S.selId = d.selId; S.foldId = d.fold || null; S.sheetOff = !!d.sheet; S.pieces = d.pieces; S.pieces.forEach(p => { if (/^Piece \d+$/i.test((p.name || '').trim())) p.name = ''; }); S.curPiece = d.curPiece; S.oneAt = d.oneAt; S.dimCut = d.dimCut;
     [S.ruler, S.lunit] = d.ruler; [S.grid, S.gridSize, S.gridAlpha, S.gridCol] = d.grid;
     $('#oneAtChk').checked = S.oneAt; $('#dimCutChk').checked = S.dimCut; $('#rulerChk').checked = S.ruler; syncRulerBtn(); $('#gridChk').checked = S.grid; syncGridBtn();
     $$('[data-lunit]').forEach(x => x.classList.toggle('on', x.dataset.lunit === S.lunit));
@@ -5339,7 +6184,7 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
     layerGroups().forEach(([id, g]) => { const v = d.layers[id] !== false; if ((g.visible !== false) !== v) { S.occ.setVisibility(id, v); layersChanged = true; } });
     setColours(Object.assign({ bg: d.look[0], patCol: d.look[1] }, d.look[3] ? { patHex: d.look[3] } : {}, d.look[4] ? { gridHex: d.look[4] } : {}));
     if (layersChanged) { buildLayers(); renderPage(false); }
-    placePattern(); renderLineList(); renderPieces(); drawLines(); drawPieces(); drawGrid(); updateMirror();
+    placePattern(); renderLineList(); renderPieces(); drawLines(); drawPieces(); drawGrid(); updateMirror(); syncSepUI();
     HIST.last = json;
     setTimeout(() => { HIST.restoring = false; }, 400);
     syncUndoButtons();
@@ -5393,7 +6238,7 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
   $('#lbNewMark').addEventListener('click', () => { if (S.markSess) endMarkSession(true); else toast('Ready for a new mark'); });
   // the rest of the line menu, as buttons in the bar
   const withLine = fn => () => { const l = selLine(); if (l) fn(l); };
-  $('#lbBend').addEventListener('click', withLine(l => { if (l.type === 'curve') straighten(l); else if (l.type === 'straight' && !l.rel) addCurvePoint(l, null); syncLineBar(); }));
+  $('#lbBend').addEventListener('click', withLine(l => { if (l.pc) togglePtEdit(l); else if (l.type === 'curve') straighten(l); else if (l.type === 'straight' && !l.rel) addCurvePoint(l, null); syncLineBar(); }));
   $('#lbUnlink').addEventListener('click', withLine(l => { delete l.rel; renderLineList(); drawLines(); record(); syncLineBar(); toast('Unlinked · this line now moves on its own'); }));
   $('#lbGroup').addEventListener('click', withLine(l => { if (l.group) ungroup(l); else startPick(l); syncLineBar(); }));
   $('#lbFlipAcross').addEventListener('click', withLine(l => { if (l.type === 'straight') flipAcross(l); }));
@@ -5595,6 +6440,7 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
     return S.flipWhole ? { world: toWorld(canvasToLocal(S.flipWhole)), custom: true, piece: null } : { world: screenCentreWorld(), custom: false, piece: null };
   }
   function flipFocus(phi, label) {
+    { const sl = selLine(); if (sl && sl.pc) { flipSel(phi); return; } }
     const f = flipInfo(), name = f.piece ? pName(f.piece) : null;
     S.flipPhi = phi; mirrorPattern(phi, f.world); flashFlip(3000);
     toast(`Flipped ${name ? '"' + name + '" ' : ''}${label}`);
@@ -6693,7 +7539,7 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
   }
   // Clear: removes every saved pattern (PDFs and their work) from this device; the one on screen stays open but stops saving
   twoTap($('#clearPatterns'), 'Clear project', async () => {
-    try { await DB.clear('work'); await DB.clear('files'); } catch { toast('Could not clear the project'); return; }
+    try { await clearWorkKeepShelf(); await DB.clear('files'); } catch { toast('Could not clear the project'); return; }
     clearTimeout(SAVE.timer); SAVE.id = null; SAVE.ready = false; SAVE.lastSig = ''; pset('pp_last', ''); PROJ.main = PROJ.lining = null;
     showBlank(); renderPatternList();
     toast('Project cleared');
@@ -7007,6 +7853,8 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
   renderLineList(); renderPieces(); renderPatternList();
   if (PHONE) phoneStart();
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { drawGrid(); drawTest(); drawLines(); });
+  // automated checks only (never on in normal use)
+  if (/[?&]notchtest\b/.test(location.search)) window.__N = { S, AI, aiFind, cellsUnder, openPieces, FILL, fillTapWith, selApply, MARKS, separatePieces, setSheet, flipSel, pcAt, putBack, fillGrid, fillTap, fillMakePiece, selClear, toMm, toScreen, drawLines, renderPieces, go, bringPiece, importPc, saveNow, togglePtEdit, pcPointGesture, lineEditGesture, rotateSel, P, DB };
 })();
 </script>
 
