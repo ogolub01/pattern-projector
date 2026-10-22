@@ -1725,9 +1725,11 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
       c.inner = c.area > 1e-6;
       const w = c.box[2] - c.box[0], h = c.box[3] - c.box[1];
       // the open paper round the pieces: an enclosed area that's huge and spread over the sheet
-      c.paper = !c.inner || c.area > sheetA * 0.15 || (vec.sheet && w > vec.sheet[0] * 0.85 && h > vec.sheet[1] * 0.85);
+      c.paper = !c.inner || (vec.sheet && w > vec.sheet[0] * 0.85 && h > vec.sheet[1] * 0.85);
       c.pts = c.hs.map(k => V[H[k].f]);
     });
+    // inside a page frame, the open paper is the biggest enclosed area (a big piece can be big too, but never that big)
+    { let big = -1, ba = 0; C.forEach((c, i) => { if (c.inner && c.area > ba) { ba = c.area; big = i; } }); if (big >= 0 && ba > sheetA * 0.25) C[big].paper = true; }
     // areas indexed by their boxes, for finding the one under a tap
     const cb = new Map(), CB = 20;
     C.forEach((c, id) => { if (!c.inner || c.paper) return; for (let y = Math.floor(c.box[1] / CB); y <= Math.floor(c.box[3] / CB); y++) for (let x = Math.floor(c.box[0] / CB); x <= Math.floor(c.box[2] / CB); x++) { const k = x * 100003 + y; let l = cb.get(k); if (!l) cb.set(k, l = []); l.push(id); } });
@@ -3869,7 +3871,7 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
       let set = one ? new Set([id]) : NotchVec.wholePiece(G, id), note = '';
       if (!one) {
         // pieces that touch other pieces or the page border would spread over the sheet: then one area at a time
-        let A = 0; set.forEach(k => { A += G.C[k].area; });
+        const ol = NotchVec.outlineOf(G, set), A = ol ? Math.abs(NotchVec.area(ol.pts)) : 0;
         const sheetA = S.base.width / K * S.base.height / K;
         if (A > sheetA * 0.3) { set = new Set([id]); note = 'This piece touches its neighbours, so it was taken one area at a time · tap each area of it (or the seam allowance strip) to add it'; }
       }
