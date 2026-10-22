@@ -824,6 +824,8 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
           <button class="btn" id="editPiecesBtn" title="Mark each pattern piece once, on the whole sheet">Mark pieces</button>
           <button class="btn slim" id="asmOpen2" hidden title="Back to putting the pages together, just as you left it">Edit page layout</button>
           <button class="btn slim" id="addPieceBtn" hidden></button><button class="btn slim" id="findPieces" hidden></button>
+          <button class="btn slim" id="importPieces" title="Pieces found by the Notch Piece Finder on claude.ai, saved as a .json file">Import pieces…</button>
+          <input type="file" id="piecesIn" accept=".json,application/json" hidden>
         </div>
         <div class="group" id="sepBox" hidden>
           <button class="btn" id="sepBtn" title="Each marked piece becomes its own object with an exact outline, so you can move, turn and flip it on its own">Separate pieces</button>
@@ -5911,6 +5913,26 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
     try { const m = await DB.get('work', id + '#m'); if (m && m.marks) Object.entries(m.marks).forEach(([k, v]) => MARKS.set(k, v)); marksSig = id + ':' + Object.keys((m && m.marks) || {}).sort().join(','); } catch {}
   }
 
+  /* pieces found by the Notch Piece Finder (an artifact on claude.ai, where Claude can look at the sheet), saved as a file */
+  $('#importPieces').addEventListener('click', () => { if (!S.base) { toast('Open the pattern PDF first, then import its pieces'); return; } const i = $('#piecesIn'); i.value = ''; i.click(); });
+  $('#piecesIn').addEventListener('change', async e => {
+    const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+    let d = null; try { d = JSON.parse(await f.text()); } catch {}
+    if (!d || d.app !== 'notch-pieces' || !Array.isArray(d.pieces)) { toast('That file isn\'t a pieces file from the Notch Piece Finder'); return; }
+    const W = S.base.width / K, H = S.base.height / K, same = d.sheet && Math.abs(d.sheet[0] - W) < 2 && Math.abs(d.sheet[1] - H) < 2;
+    if (S.asm || !same) { toast('Those pieces were found on a ' + (d.sheet ? Math.round(d.sheet[0]) + ' × ' + Math.round(d.sheet[1]) + ' mm' : 'different') + ' sheet; this one is ' + Math.round(W) + ' × ' + Math.round(H) + ' mm · open ' + (d.file || 'the same PDF') + ' first'); return; }
+    if (d.page && S.pageNum !== d.page && S.pdf && d.page <= S.pdf.numPages) { S.pageNum = d.page; await renderPage(true); }
+    const got = d.pieces.filter(q => q && q.shape && q.shape.rle && Array.isArray(q.box)).map(q => {
+      const p = { id: 'p' + (++pieceSeq) + '_' + Date.now(), box: q.box.slice(0, 4).map(Number), shape: { x: +q.shape.x, y: +q.shape.y, w: +q.shape.w, h: +q.shape.h, cell: 1, rle: String(q.shape.rle) }, cut: false };
+      p.name = String(q.name || '').trim().slice(0, 60); p.cutInfo = String(q.cutInfo || '').slice(0, 40); return p;
+    });
+    if (!got.length) { toast('No pieces in that file'); return; }
+    got.forEach(p => { if (p.name && S.pieces.concat(got).some(o => o !== p && o.name === p.name)) p.name = ''; });
+    const had = S.pieces.length;
+    S.pieces = S.pieces.concat(got); S.curPiece = had; S.oneAt = false; $('#oneAtChk').checked = false;
+    renderPieces(); drawPieces(); record(); openFold('piecesv2');
+    toast(got.length + ' piece' + (got.length > 1 ? 's' : '') + ' imported' + (had ? ' (added to your ' + had + ')' : '') + ' · Edit in Mark pieces to check them, or Separate pieces');
+  });
   $('#sepBtn').addEventListener('click', () => separatePieces(S.pieces.slice()));
   $('#sheetChk').addEventListener('change', e => setSheet(e.target.checked));
   $('#sepBack').addEventListener('click', e => {
