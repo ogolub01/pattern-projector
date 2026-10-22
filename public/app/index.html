@@ -6277,6 +6277,7 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
     if (d.page && S.pageNum !== d.page && S.pdf && d.page <= S.pdf.numPages) { S.pageNum = d.page; await renderPage(true); }
     const got = d.pieces.filter(q => q && q.shape && q.shape.rle && Array.isArray(q.box)).map(q => {
       const p = { id: 'p' + (++pieceSeq) + '_' + Date.now(), box: q.box.slice(0, 4).map(Number), shape: { x: +q.shape.x, y: +q.shape.y, w: +q.shape.w, h: +q.shape.h, cell: 1, rle: String(q.shape.rle) }, cut: false };
+      if (Array.isArray(q.vpts) && q.vpts.length > 2) p.vpts = q.vpts.map(v => [+v[0], +v[1]]);
       p.name = String(q.name || '').trim().slice(0, 60); p.cutInfo = String(q.cutInfo || '').slice(0, 40); return p;
     });
     if (!got.length) { toast('No pieces in that file'); return; }
