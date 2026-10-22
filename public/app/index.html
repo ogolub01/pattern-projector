@@ -1172,9 +1172,17 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
       <output id="pwBrushVal">12 mm</output>
       <span class="hint"><kbd>[</kbd> <kbd>]</kbd></span>
     </div>
+    <div class="pwOpts" id="pwShapeOpts" hidden>
+      <span class="eyebrow">Shape</span>
+      <div class="seg"><button class="btn slim" data-pwshape="whole" title="A tap takes the whole piece, out to its cutting line">Whole piece</button><button class="btn slim" data-pwshape="one" title="A tap takes just the area you tap (or hold Shift)">One area</button></div>
+      <span class="hint">Alt or − takes an area out</span>
+    </div>
     <div class="pwTools" role="toolbar" aria-orientation="vertical" aria-label="Selection tools">
+      <button class="tool" data-pwt="shape" title="Shape (S): tap inside a piece to take it whole, along the designer's lines · Shift: just the area tapped · Alt: take an area out" aria-label="Shape"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 19l2-13 11 2 1 9z"/><circle cx="5" cy="19" r="1.6" fill="currentColor"/><circle cx="7" cy="6" r="1.6" fill="currentColor"/><circle cx="18" cy="8" r="1.6" fill="currentColor"/><circle cx="19" cy="17" r="1.6" fill="currentColor"/></svg></button>
       <button class="tool" data-pwt="fill" title="Fill (G): tap inside a closed area · drag to move the sheet" aria-label="Fill"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 3l8 8-7 7-8-8z"/><path d="M4 10h15"/><path d="M20 15s1.6 2 1.6 3.1a1.6 1.6 0 0 1-3.2 0C18.4 17 20 15 20 15z"/></svg></button>
       <button class="tool" data-pwt="brush" title="Brush (B): paint the selection · [ and ] change the size" aria-label="Brush"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4.5l5 5-8 8-5-5z"/><path d="M6.5 12.5c-2 0-3 1.5-3 3.5 0 1.5-.8 2.5-1.5 3 2.5.5 6 .2 7.5-1.5 1-1.1 1-2.5 0-3.5z"/></svg></button>
+      <button class="tool" data-pwt="unline" title="Leave out line (X): tap a line that gets in the way (a grainline, a label box) · tap again to put it back" aria-label="Leave out a line"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M4 20L20 4" stroke-dasharray="3 3"/><path d="M14 18l5-5M14 13l5 5"/></svg></button>
+      <button class="tool" data-pwt="addline" title="Add line (N): drag to draw a line that's missing · its ends snap to the lines and corners nearby" aria-label="Add a line"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M4 20L16 8"/><circle cx="4" cy="20" r="1.6" fill="currentColor"/><path d="M19 3v6M16 6h6"/></svg></button>
       <button class="tool" data-pwt="lasso" title="Draw (L): draw round what you want" aria-label="Draw round"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="9" rx="8" ry="5"/><path d="M8 13.4c-1.2 1.2-1 3 .6 3.4 1.8.5 1.6 2.6-.4 3.2"/></svg></button>
       <span class="tsep"></span>
       <button class="tool" data-pwm="add" title="Add to the selection (or hold Shift)" aria-label="Add"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
@@ -1575,6 +1583,227 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
     return false;
   }
 
+
+  /* From a piece's inner outline (often its stitching line, when the seam allowance strip wasn't picked up), look
+     outward for the cutting line: at each millimetre along the edge, the first designer's line running alongside,
+     2.5–28 mm out (and near Claude's rough outline, if given). Returns a polygon just past the cutting line, ready to
+     mark the whole piece, or null when there's no seam allowance to find. */
+  function outwardToCutLine(vec, inner, guide) {
+    const idx = vec.index || indexVectors(vec, vec.sheet);
+    const S = resample(inner, 1), N = S.length; if (N < 20) return null;
+    const MAXD = 28, MIND = 2.5, d = new Float64Array(N).fill(NaN), nrm = [];
+    for (let i = 0; i < N; i++) {
+      const p = S[i], a = S[(i + N - 3) % N], b = S[(i + 3) % N];
+      let tx = b[0] - a[0], ty = b[1] - a[1]; const tl = Math.hypot(tx, ty) || 1; tx /= tl; ty /= tl;
+      let nx = -ty, ny = tx;
+      if (inPolyFast(inner, p[0] + nx * 1.5, p[1] + ny * 1.5)) { nx = -nx; ny = -ny; }
+      nrm.push([nx, ny]);
+      const cand = new Set();
+      for (let s = 0; s <= MAXD; s += 5) near(idx, [p[0] + nx * s, p[1] + ny * s], 5).forEach(k => cand.add(k));
+      let best = Infinity;
+      for (const k of cand) {
+        const g = idx.segs[k], sx = g.b[0] - g.a[0], sy = g.b[1] - g.a[1], sl = Math.hypot(sx, sy); if (sl < 1e-6) continue;
+        if (Math.abs(sx * tx + sy * ty) / sl < 0.8) continue;          // across the edge: a notch or a tick
+        const den = nx * sy - ny * sx; if (Math.abs(den) < 1e-9) continue;
+        const qx = g.a[0] - p[0], qy = g.a[1] - p[1], t = (qx * sy - qy * sx) / den, u = (qx * ny - qy * nx) / den;
+        if (u < 0 || u > 1 || t < MIND || t > MAXD || t >= best) continue;
+        if (guide) { const X = [p[0] + nx * t, p[1] + ny * t]; if (!inPolyFast(guide, X[0], X[1]) && !nearEdge(guide, X, 12)) continue; }
+        best = t;
+      }
+      if (best < Infinity) d[i] = best;
+    }
+    let hits = 0; for (let i = 0; i < N; i++) if (d[i] === d[i]) hits++;
+    if (hits < N * 0.35) return null;
+    // short gaps (a label, a corner) take the distance either side; long ones (a fold edge, no allowance) stay at 0
+    const out = Float64Array.from(d);
+    for (let i = 0; i < N; i++) {
+      if (d[i] === d[i]) continue;
+      let l = 1, r = 1; while (l < N && d[(i - l + N) % N] !== d[(i - l + N) % N]) l++; while (r < N && d[(i + r) % N] !== d[(i + r) % N]) r++;
+      out[i] = l + r - 1 <= 30 && l < N ? (d[(i - l + N) % N] * r + d[(i + r) % N] * l) / (l + r) : 0;
+    }
+    // a running median smooths out the odd stray line
+    const W = 7, sm = new Float64Array(N);
+    for (let i = 0; i < N; i++) { const w = []; for (let k = -W; k <= W; k++) w.push(out[(i + k + N) % N]); w.sort((x, y) => x - y); sm[i] = w[W]; }
+    return S.map((p, i) => [p[0] + nrm[i][0] * (sm[i] + 2), p[1] + nrm[i][1] * (sm[i] + 2)]);
+  }
+
+  /* ---------- the line graph (v138): pieces made of the designer's own lines ----------
+     Every drawn line on the sheet, split where lines cross or meet, joined into a map of corners and edges. Each
+     enclosed area is a loop of real line edges, so a piece's outline is exact by construction (no pixels involved).
+     Tiny strokes (letters, notch ticks, arrowheads) are left out by default so they don't chop pieces into crumbs;
+     single lines can be left out by hand, and missing lines drawn in. */
+  function buildGraph(vec, opt) {
+    opt = opt || {};
+    const MIN = opt.minLen == null ? 8 : opt.minLen, TOL = opt.snap || 1.0, ignore = opt.ignore || new Set();
+    const segs = [];
+    vec.polys.forEach(P => {
+      if (ignore.has(P.id)) return;
+      const b = P.bb || (P.bb = P.pts.reduce((m, p) => [Math.min(m[0], p[0]), Math.min(m[1], p[1]), Math.max(m[2], p[0]), Math.max(m[3], p[1])], [Infinity, Infinity, -Infinity, -Infinity]));
+      if (Math.hypot(b[2] - b[0], b[3] - b[1]) < MIN) return;
+      for (let i = 1; i < P.pts.length; i++) { const a = P.pts[i - 1], c = P.pts[i]; if (Math.hypot(c[0] - a[0], c[1] - a[1]) > 1e-4) segs.push({ a, b: c, pid: P.id, sp: [] }); }
+    });
+    (opt.extra || []).forEach((e, k) => { if (Math.hypot(e[1][0] - e[0][0], e[1][1] - e[0][1]) > 1e-4) segs.push({ a: e[0], b: e[1], pid: 'x' + k, sp: [] }); });
+    // corners: merged when closer than 0.05 mm (crossings), or than TOL for line ends that nearly meet
+    const V = [], vcell = new Map(), VB = 2;
+    const vkey = (x, y) => Math.floor(x / VB) * 1000003 + Math.floor(y / VB);
+    const vfind = (p, tol) => {
+      let best = -1, bd = tol;
+      for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) { const l = vcell.get((Math.floor(p[0] / VB) + dx) * 1000003 + Math.floor(p[1] / VB) + dy); if (l) for (const v of l) { const d = Math.hypot(V[v][0] - p[0], V[v][1] - p[1]); if (d < bd) { bd = d; best = v; } } }
+      return best;
+    };
+    const vadd = (p, tol) => { const f = vfind(p, tol); if (f >= 0) return f; V.push([p[0], p[1]]); const k = vkey(p[0], p[1]); let l = vcell.get(k); if (!l) vcell.set(k, l = []); l.push(V.length - 1); return V.length - 1; };
+    // segment index (5 mm buckets)
+    const B = 5, cells = new Map();
+    segs.forEach((s, i) => {
+      const x0 = Math.floor(Math.min(s.a[0], s.b[0]) / B), x1 = Math.floor(Math.max(s.a[0], s.b[0]) / B), y0 = Math.floor(Math.min(s.a[1], s.b[1]) / B), y1 = Math.floor(Math.max(s.a[1], s.b[1]) / B);
+      for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) { const k = x * 100003 + y; let l = cells.get(k); if (!l) cells.set(k, l = []); l.push(i); }
+    });
+    // 1. ends
+    segs.forEach(s => { s.va = vadd(s.a, TOL * 0.5); s.vb = vadd(s.b, TOL * 0.5); s.sp.push([0, s.va], [1, s.vb]); });
+    // 2. crossings
+    const done = new Set();
+    cells.forEach(l => {
+      for (let p = 0; p < l.length; p++) for (let q = p + 1; q < l.length; q++) {
+        const i = l[p], j = l[q], key = i < j ? i * 1e6 + j : j * 1e6 + i; if (done.has(key)) continue; done.add(key);
+        const s = segs[i], t = segs[j];
+        if (s.va === t.va || s.va === t.vb || s.vb === t.va || s.vb === t.vb) continue;
+        const d1x = s.b[0] - s.a[0], d1y = s.b[1] - s.a[1], d2x = t.b[0] - t.a[0], d2y = t.b[1] - t.a[1], den = d1x * d2y - d1y * d2x;
+        if (Math.abs(den) < 1e-12) continue;
+        const ex = t.a[0] - s.a[0], ey = t.a[1] - s.a[1], u = (ex * d2y - ey * d2x) / den, w = (ex * d1y - ey * d1x) / den;
+        if (u <= 1e-9 || u >= 1 - 1e-9 || w <= 1e-9 || w >= 1 - 1e-9) continue;
+        const v = vadd([s.a[0] + d1x * u, s.a[1] + d1y * u], 0.05);
+        s.sp.push([u, v]); t.sp.push([w, v]);
+      }
+    });
+    // 3. line ends that stop just short of (or just past) another line: joined to it
+    segs.forEach((s, i) => {
+      [[s.va, s.a], [s.vb, s.b]].forEach(([v, p]) => {
+        const x = Math.floor(p[0] / B), y = Math.floor(p[1] / B); let best = null;
+        for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) { const l = cells.get((x + dx) * 100003 + y + dy); if (l) for (const j of l) {
+          if (j === i) continue; const t = segs[j]; if (t.va === v || t.vb === v) continue;
+          const tx = t.b[0] - t.a[0], ty = t.b[1] - t.a[1], L2 = tx * tx + ty * ty; let u = ((p[0] - t.a[0]) * tx + (p[1] - t.a[1]) * ty) / L2; if (u <= 0.0001 || u >= 0.9999) continue;
+          const d = Math.hypot(t.a[0] + tx * u - p[0], t.a[1] + ty * u - p[1]); if (d < TOL && (!best || d < best.d)) best = { d, j, u };
+        } }
+        if (best) segs[best.j].sp.push([best.u, v]);
+      });
+    });
+    // 4. edges between consecutive corners along each line
+    const E = [], ekey = new Set();
+    segs.forEach(s => {
+      s.sp.sort((x, y) => x[0] - y[0]);
+      for (let k = 1; k < s.sp.length; k++) {
+        const a = s.sp[k - 1][1], b = s.sp[k][1]; if (a === b) continue;
+        const key = a < b ? a + ',' + b : b + ',' + a; if (ekey.has(key)) continue; ekey.add(key);
+        E.push([a, b, s.pid]);
+      }
+    });
+    // 5. half-edges round each corner, sorted by angle; loops = turn the same way at every corner
+    const H = [];   // h: from, to, twin, edge
+    const out = V.map(() => []);
+    E.forEach(([a, b], e) => { const h = H.length; H.push({ f: a, t: b, tw: h + 1, e }, { f: b, t: a, tw: h, e }); out[a].push(h); out[b].push(h + 1); });
+    H.forEach(h => { h.ang = Math.atan2(V[h.t][1] - V[h.f][1], V[h.t][0] - V[h.f][0]); });
+    out.forEach(l => l.sort((x, y) => H[x].ang - H[y].ang));
+    const pos = new Int32Array(H.length); out.forEach(l => l.forEach((h, k) => { pos[h] = k; }));
+    // next(h): at h's end, the outgoing edge just before the way back, going round (keeps the area on one side)
+    const nxt = new Int32Array(H.length);
+    H.forEach((h, i) => { const tw = h.tw, l = out[h.t], k = pos[tw]; nxt[i] = l[(k - 1 + l.length) % l.length]; });
+    const cyc = new Int32Array(H.length).fill(-1), C = [];
+    for (let i = 0; i < H.length; i++) {
+      if (cyc[i] >= 0) continue;
+      const id = C.length, hs = []; let h = i, guard = 0;
+      while (cyc[h] < 0 && guard++ < 2e6) { cyc[h] = id; hs.push(h); h = nxt[h]; }
+      let A = 0, x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+      hs.forEach(k => { const p = V[H[k].f], q = V[H[k].t]; A += p[0] * q[1] - q[0] * p[1]; if (p[0] < x0) x0 = p[0]; if (p[0] > x1) x1 = p[0]; if (p[1] < y0) y0 = p[1]; if (p[1] > y1) y1 = p[1]; });
+      C.push({ hs, A: A / 2, box: [x0, y0, x1, y1] });
+    }
+    // which way round an enclosed area goes: the way most loops go (outer boundaries are the few others)
+    let pos1 = 0, neg = 0; C.forEach(c => { if (c.A > 1e-6) pos1++; else if (c.A < -1e-6) neg++; });
+    const sgn = pos1 >= neg ? 1 : -1;
+    const sheetA = vec.sheet ? vec.sheet[0] * vec.sheet[1] : Infinity;
+    C.forEach(c => {
+      c.area = c.A * sgn;                       // > 0: an enclosed area
+      c.inner = c.area > 1e-6;
+      const w = c.box[2] - c.box[0], h = c.box[3] - c.box[1];
+      // the open paper round the pieces: an enclosed area that's huge and spread over the sheet
+      c.paper = !c.inner || c.area > sheetA * 0.15 || (vec.sheet && w > vec.sheet[0] * 0.85 && h > vec.sheet[1] * 0.85);
+      c.pts = c.hs.map(k => V[H[k].f]);
+    });
+    // areas indexed by their boxes, for finding the one under a tap
+    const cb = new Map(), CB = 20;
+    C.forEach((c, id) => { if (!c.inner || c.paper) return; for (let y = Math.floor(c.box[1] / CB); y <= Math.floor(c.box[3] / CB); y++) for (let x = Math.floor(c.box[0] / CB); x <= Math.floor(c.box[2] / CB); x++) { const k = x * 100003 + y; let l = cb.get(k); if (!l) cb.set(k, l = []); l.push(id); } });
+    // islands: a group of lines that doesn't touch the lines round it (a stitching line inside a cutting line whose
+    // seam allowance is open at the ends, a pocket drawn inside a front). Its outside belongs to the area it sits in.
+    const par = V.map((_, i) => i), find = i => { while (par[i] !== i) { par[i] = par[par[i]]; i = par[i]; } return i; };
+    E.forEach(([a, b]) => { const ra = find(a), rb = find(b); if (ra !== rb) par[ra] = rb; });
+    C.forEach(c => { c.comp = c.hs.length ? find(H[c.hs[0]].f) : -1; });
+    const G = { V, E, H, C, cyc, cb, CB, sgn, segs: segs.length };
+    C.forEach((c, ci) => {
+      c.parent = -1; if (c.inner) return;
+      // the smallest enclosed area of another group that holds this island
+      const p = c.pts[0]; if (!p) return;
+      const l = cb.get(Math.floor(p[0] / CB) * 100003 + Math.floor(p[1] / CB)); if (!l) return;
+      let best = -1, ba = Infinity;
+      for (const id of l) { const d = C[id]; if (d.comp === c.comp || d.area >= ba || p[0] < d.box[0] || p[0] > d.box[2] || p[1] < d.box[1] || p[1] > d.box[3]) continue; if (inPoly(d.pts, p[0], p[1])) { best = id; ba = d.area; } }
+      c.parent = best;
+      if (best >= 0) (C[best].kids = C[best].kids || []).push(ci);
+    });
+    return G;
+  }
+  // the smallest enclosed area under a point (not the open paper)
+  function areaAt(G, p) {
+    const l = G.cb.get(Math.floor(p[0] / G.CB) * 100003 + Math.floor(p[1] / G.CB)); if (!l) return -1;
+    let best = -1, ba = Infinity;
+    for (const id of l) { const c = G.C[id]; if (c.area >= ba || p[0] < c.box[0] || p[0] > c.box[2] || p[1] < c.box[1] || p[1] > c.box[3]) continue; if (inPoly(c.pts, p[0], p[1])) { best = id; ba = c.area; } }
+    return best;
+  }
+  // the whole piece round an area: every area reachable without crossing into the open paper (so up to its cutting line)
+  const across = (G, h) => { let o = G.cyc[G.H[h].tw]; if (!G.C[o].inner) o = G.C[o].parent; return o; };
+  function wholePiece(G, id) {
+    const seen = new Set([id]), st = [id];
+    const visit = o => { if (o < 0 || seen.has(o)) return; const oc = G.C[o]; if (oc.paper || !oc.inner) return; seen.add(o); st.push(o); };
+    while (st.length) {
+      const c = G.C[st.pop()];
+      c.hs.forEach(h => visit(across(G, h)));
+      // islands inside this area (a pocket, a stitching line) are part of the piece too
+      (c.kids || []).forEach(k => G.C[k].hs.forEach(h => visit(G.cyc[G.H[h].tw])));
+    }
+    return seen;
+  }
+  // outline of a set of areas: the edges with a chosen area on one side only, joined into loops; the biggest is the outline
+  function outlineOf(G, set) {
+    const nextFrom = new Map();
+    set.forEach(id => G.C[id].hs.forEach(h => { if (set.has(across(G, h))) return; const f = G.H[h].f; let l = nextFrom.get(f); if (!l) nextFrom.set(f, l = []); l.push(h); }));
+    const used = new Set(), loops = [];
+    nextFrom.forEach((l, f0) => l.forEach(h0 => {
+      if (used.has(h0)) return;
+      const pts = []; let h = h0, guard = 0;
+      while (h != null && !used.has(h) && guard++ < 1e6) {
+        used.add(h); pts.push(G.V[G.H[h].f]);
+        const cand = (nextFrom.get(G.H[h].t) || []).filter(k => !used.has(k));
+        if (!cand.length) break;
+        // at a corner with more than one way on, keep turning the same way as the areas do
+        if (cand.length === 1) h = cand[0];
+        else { const back = Math.atan2(G.V[G.H[h].f][1] - G.V[G.H[h].t][1], G.V[G.H[h].f][0] - G.V[G.H[h].t][0]); let bestK = cand[0], bv = Infinity; cand.forEach(k => { let d = (G.H[k].ang - back) * G.sgn; d = ((d % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI); if (d < 1e-9) d = 2 * Math.PI; if (d < bv) { bv = d; bestK = k; } }); h = bestK; }
+      }
+      if (pts.length > 2) loops.push(pts);
+    }));
+    if (!loops.length) return null;
+    loops.sort((a, b) => Math.abs(area(b)) - Math.abs(area(a)));
+    let pts = loops[0].map(p => [p[0], p[1]]);
+    // drop corners that lie on a straight run (left by crossings that are no longer there)
+    pts = rdpClosed(pts, 0.01);
+    if (area(pts) < 0) pts.reverse();
+    return { pts, holes: loops.length - 1 };
+  }
+  // the line nearest a point (for leaving one out by hand)
+  function lineNear(vec, p, tol) {
+    const idx = vec.index || indexVectors(vec, vec.sheet); let best = null, bd = tol;
+    for (const k of near(idx, p, tol)) { const g = idx.segs[k], d = projSeg(p, g.a, g.b).d; if (d < bd) { bd = d; best = g.p; } }
+    return best;
+  }
+  // markings inside an outline (exported for separated pieces)
+  function marksFor(vec, pts) { return marksInside(vec, pts, []); }
+
   /* where a piece is now: the best fit of its original outline onto its current points (turn, move, mirror) */
   function fitRigid(src, dst) {
     const n = Math.min(src.length, dst.length); if (n < 2) return null;
@@ -1595,7 +1824,7 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
   }
   function invert(M) { const det = M[0] * M[3] - M[1] * M[2]; const a = M[3] / det, b = -M[1] / det, c = -M[2] / det, d = M[0] / det; return [a, b, c, d, -(a * M[4] + c * M[5]), -(b * M[4] + d * M[5])]; }
 
-  const api = { PT_TO_MM, extractVectors, indexVectors, buildOutline, traceOutline, packMarks, unpackMarks, maskContour, rdp, rdpClosed, area, inPoly, fitRigid, invert, apply: ap, mul };
+  const api = { PT_TO_MM, buildGraph, areaAt, wholePiece, outlineOf, lineNear, marksFor, outwardToCutLine, extractVectors, indexVectors, buildOutline, traceOutline, packMarks, unpackMarks, maskContour, rdp, rdpClosed, area, inPoly, fitRigid, invert, apply: ap, mul };
   if (typeof module !== 'undefined') module.exports = api; else root.NotchVec = api;
 })(typeof window !== 'undefined' ? window : globalThis);
 
@@ -3009,6 +3238,7 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
   }
   // add cells to the selection, or take them out
   function selApply(cells, add, noHist) {
+    if (!FILL.vlock) { FILL.vpts = null; FILL.vsel = null; }
     const G = fillGrid(), sel = FILL.sel, gw = G.gw, changed = [];
     for (const k of cells) {
       if (add) { if (!sel[k]) { sel[k] = 1; FILL.count++; changed.push(k); const x = k % gw, y = (k - x) / gw, b = FILL.box; FILL.box = b ? [Math.min(b[0], x), Math.min(b[1], y), Math.max(b[2], x), Math.max(b[3], y)] : [x, y, x, y]; } }
@@ -3025,7 +3255,7 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
     if (FILL.count && !op.add) { const gw = FILL.grid.gw; op.cells.forEach(k => { const x = k % gw, y = (k - x) / gw, b = FILL.box; FILL.box = [Math.min(b[0], x), Math.min(b[1], y), Math.max(b[2], x), Math.max(b[3], y)]; }); }
     syncFill(); drawPieces();
   }
-  function selClear() { if (FILL.sel) FILL.sel.fill(0); FILL.count = 0; FILL.box = null; FILL.dirty = true; }
+  function selClear() { if (FILL.sel) FILL.sel.fill(0); FILL.count = 0; FILL.box = null; FILL.dirty = true; if (!FILL.vlock) { FILL.vpts = null; FILL.vsel = null; } }
   // the selection, drawn on the pattern
   function selCanvas(col) {
     if (!FILL.count || !FILL.box) return null;
@@ -3271,6 +3501,7 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
   }
   function fillMakePiece(quiet) {
     if (!FILL.count || !FILL.box) return null;
+    const vpts = FILL.vpts || null;
     const G = FILL.grid, PAD = 4, [bx, by, bx2, by2] = FILL.box;
     const x0 = bx - PAD, y0 = by - PAD, w = bx2 - bx + 1 + PAD * 2, h = by2 - by + 1 + PAD * 2;
     const u = new Uint8Array(w * h);
@@ -3289,6 +3520,7 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
     const rows = [];
     for (let y = 0; y < h; y++) { const runs = []; let v = 0, n = 0; for (let x = 0; x < w; x++) { const mm = filled[y * w + x]; if (mm === v) n++; else { runs.push(n); v = mm; n = 1; } } runs.push(n); rows.push(runs.join(',')); }
     const piece = { id: 'p' + (++pieceSeq) + '_' + Date.now(), box: [x0 + fx0, y0 + fy0, x0 + fx1 + 1, y0 + fy1 + 1], shape: { x: x0, y: y0, w, h, cell: 1, rle: rows.join(';') }, cut: false };
+    if (vpts) piece.vpts = vpts;
     applyName(piece, S.pieces.length + 1); piece.name = '';   // blank until you name it; shows as "Piece n"
     S.pieces.push(piece); S.curPiece = S.pieces.length - 1;
     selClear(); FILL.hist = [];
@@ -3360,9 +3592,10 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
     g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high'; g.drawImage(S.base, 0, 0, W, Hh);
     // finished pieces stay orange; the one you picked in the strip is brighter
     PW.cur = pwEditIdx();
-    S.pieces.forEach((p, i) => { if (PW.redoPiece && p === PW.redoPiece.p) return; if (p.shape) paintPiece(g, p, '#C9A24B', i === PW.cur ? 0.62 : 0.45); else { g.save(); g.globalAlpha = i === PW.cur ? 0.62 : 0.45; g.fillStyle = '#C9A24B'; piecePath(g, p); g.fill(); g.restore(); } });
+    S.pieces.forEach((p, i) => { if (PW.redoPiece && p === PW.redoPiece.p) return; if (p.vpts) { g.save(); g.strokeStyle = '#8A6A22'; g.lineWidth = 1.6 / v.s; g.beginPath(); p.vpts.forEach((q, k) => k ? g.lineTo(q[0], q[1]) : g.moveTo(q[0], q[1])); g.closePath(); g.stroke(); g.restore(); } if (p.shape) paintPiece(g, p, '#C9A24B', i === PW.cur ? 0.62 : 0.45); else { g.save(); g.globalAlpha = i === PW.cur ? 0.62 : 0.45; g.fillStyle = '#C9A24B'; piecePath(g, p); g.fill(); g.restore(); } });
     // what you're selecting now
     if (FILL.count) drawSelection(g, '#FF8A3D');
+    try { pwDrawLines(g); } catch (err) { console.error(err); }
     if (PW.draft && PW.draft.length > 1) { g.save(); g.strokeStyle = '#FF6B5E'; g.lineWidth = 2 / v.s; g.setLineDash([6 / v.s, 4 / v.s]); g.beginPath(); PW.draft.forEach((q, i) => i ? g.lineTo(q[0], q[1]) : g.moveTo(q[0], q[1])); g.stroke(); g.restore(); }
     // the brush's size, round the pointer
     if (PW.tool === 'brush' && PW.hover) { g.save(); g.lineWidth = 1.5 / v.s; g.strokeStyle = '#0E0E0D'; g.beginPath(); g.arc(PW.hover[0], PW.hover[1], PW.brush / 2, 0, Math.PI * 2); g.stroke(); g.strokeStyle = '#FFFFFF'; g.lineWidth = 0.75 / v.s; g.stroke(); g.restore(); }
@@ -3469,7 +3702,7 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
   function pwSnapshot() {
     const cells = [];
     if (FILL.count && FILL.box) { const G = FILL.grid, [x0, y0, x1, y1] = FILL.box; for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) { const k = y * G.gw + x; if (FILL.sel[k]) cells.push(k); } }
-    return { pieces: S.pieces.slice(), names: S.pieces.map(p => p.name), cells, redoName: PW.redoName, redoPiece: PW.redoPiece };
+    return { pieces: S.pieces.slice(), names: S.pieces.map(p => p.name), cells, redoName: PW.redoName, redoPiece: PW.redoPiece, vpts: FILL.vpts, vsel: FILL.vsel ? [...FILL.vsel] : null };
   }
   function pwAct(fn) {
     const snap = pwSnapshot(), n0 = FILL.count, p0 = S.pieces.length;
@@ -3483,6 +3716,7 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
     if (!snap) { toast('Nothing to undo'); return; }
     S.pieces = snap.pieces; S.pieces.forEach((p, i) => { p.name = snap.names[i]; }); PW.redoName = snap.redoName; PW.redoPiece = snap.redoPiece;
     selClear(); if (snap.cells.length) selApply(snap.cells, true, true);
+    if (snap.vpts) { FILL.vpts = snap.vpts; FILL.vsel = new Set(snap.vsel || []); PW.vsel = new Set(FILL.vsel); }
     PW.cur = -1; pwTiles(); pwDraw();
   }
   // Clear: drop the piece being marked; if it was an existing piece being changed, it goes back as it was
@@ -3510,7 +3744,7 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
     if (r) {
       // a changed outline: same piece, same name and number, same place in the row; only its shape is new
       S.pieces.pop();
-      p = Object.assign({}, r.p, { box: p.box, shape: p.shape });
+      p = Object.assign({}, r.p, { box: p.box, shape: p.shape, vpts: p.vpts }); if (!p.vpts) delete p.vpts;
       const at = S.pieces.indexOf(r.p);
       if (at >= 0) S.pieces[at] = p; else S.pieces.push(p);
       S.curPiece = S.pieces.indexOf(p);
@@ -3588,9 +3822,113 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
     if (FILL.count !== before) PW.strokeChanged = true;
     pwDraw();
   }
+  /* ---------- Shape, Leave out line, Add line (v138): pieces made of the designer's own lines ----------
+     Tap inside a shape: the whole piece out to its cutting line, as a loop of the PDF's own lines (exact). Shift (or
+     One area) adds just the area tapped; Alt (or −) takes one out. Lines that get in the way (a grainline, a label
+     box) can be left out, and missing lines drawn in; both are remembered with the pattern. */
+  PW.vsel = new Set();
+  const VG = { key: null, g: null, busy: null };
+  const vEdits = () => S.vEdits || (S.vEdits = { ignore: [], extra: [] });
+  async function pwGraph() {
+    const vec = await pageVectors().catch(() => null);
+    if (!vec) return null;
+    const ed = vEdits(), key = VEC.key + '|' + ed.ignore.join(',') + '|' + ed.extra.map(e => e.flat().map(v => v.toFixed(1)).join(' ')).join(';');
+    if (VG.key === key && VG.g) return VG.g;
+    VG.g = NotchVec.buildGraph(vec, { ignore: new Set(ed.ignore), extra: ed.extra }); VG.key = key; VG.vec = vec;
+    return VG.g;
+  }
+  // the chosen areas → the selection (so Save, Clear, undo and the tiles work as for Fill), with its exact outline kept
+  function pwApplyShape(G) {
+    const o = PW.vsel.size ? NotchVec.outlineOf(G, PW.vsel) : null;
+    FILL.vlock = true;
+    selClear();
+    if (o) {
+      const pts = o.pts, Gr = fillGrid();
+      let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity; pts.forEach(q => { x0 = Math.min(x0, q[0]); y0 = Math.min(y0, q[1]); x1 = Math.max(x1, q[0]); y1 = Math.max(y1, q[1]); });
+      x0 = Math.max(0, Math.floor(x0) - 2); y0 = Math.max(0, Math.floor(y0) - 2); x1 = Math.min(Gr.gw - 1, Math.ceil(x1) + 2); y1 = Math.min(Gr.gh - 1, Math.ceil(y1) + 2);
+      const w = x1 - x0 + 1, h = y1 - y0 + 1, cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+      const g = cv.getContext('2d'); g.fillStyle = '#000'; g.beginPath(); pts.forEach((q, i) => i ? g.lineTo(q[0] - x0, q[1] - y0) : g.moveTo(q[0] - x0, q[1] - y0)); g.closePath(); g.fill();
+      const d = g.getImageData(0, 0, w, h).data, cells = []; freeCanvas(cv);
+      for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (d[(y * w + x) * 4 + 3] >= 100) cells.push((y + y0) * Gr.gw + x + x0);
+      if (cells.length) selApply(cells, true, true);
+      FILL.vpts = pts.map(q => [Math.round(q[0] * 100) / 100, Math.round(q[1] * 100) / 100]);
+      FILL.vsel = new Set(PW.vsel);
+    } else { FILL.vpts = null; FILL.vsel = null; }
+    FILL.vlock = false; FILL.changed = true;
+  }
+  async function pwShapeTap(at, add, one) {
+    const G = await pwGraph();
+    if (!G) { toast('This PDF has no drawn lines to follow (a scan, or joined pages) · use Fill, Brush or Draw'); return; }
+    const id = NotchVec.areaAt(G, at);
+    if (id < 0) { toast('That\'s the open paper, or a line · tap inside a shape'); return; }
+    if (FILL.vsel && FILL.count) PW.vsel = new Set(FILL.vsel);
+    else if (FILL.count) { toast('This piece was marked with Fill or Brush · Clear it to use Shape'); return; }
+    else PW.vsel = new Set();
+    pwAct(() => {
+      if (!add) { if (!PW.vsel.has(id)) { toast('That area isn\'t in the piece'); return; } PW.vsel.delete(id); pwApplyShape(G); return; }
+      let set = one ? new Set([id]) : NotchVec.wholePiece(G, id), note = '';
+      if (!one) {
+        // pieces that touch other pieces or the page border would spread over the sheet: then one area at a time
+        let A = 0; set.forEach(k => { A += G.C[k].area; });
+        const sheetA = S.base.width / K * S.base.height / K;
+        if (A > sheetA * 0.3) { set = new Set([id]); note = 'This piece touches its neighbours, so it was taken one area at a time · tap each area of it (or the seam allowance strip) to add it'; }
+      }
+      set.forEach(k => PW.vsel.add(k));
+      pwApplyShape(G);
+      if (note) toast(note);
+    });
+    pwTiles(); pwDraw();
+  }
+  // leave a line out (or put it back), or remove a drawn-in line
+  async function pwUnlineTap(at) {
+    const vec = await pageVectors().catch(() => null); if (!vec) { toast('This PDF has no drawn lines'); return; }
+    const ed = vEdits(), tol = 8 / PW.view.s;
+    const xi = ed.extra.findIndex(e => segDist(at, e[0], e[1]) < tol);
+    if (xi >= 0) { ed.extra.splice(xi, 1); toast('Drawn line removed'); }
+    else {
+      const P = NotchVec.lineNear(vec, at, tol); if (!P) { toast('Tap right on a line'); return; }
+      const k = ed.ignore.indexOf(P.id);
+      if (k >= 0) { ed.ignore.splice(k, 1); toast('Line back in'); } else { ed.ignore.push(P.id); toast('Line left out · areas either side now count as one'); }
+    }
+    PW.vsel = new Set(); if (FILL.vsel) { selClear(); FILL.vsel = null; FILL.vpts = null; }
+    record(); await pwGraph(); pwTiles(); pwDraw();
+  }
+  // ends of a drawn line snap to a corner or a line nearby
+  function pwSnapEnd(p) {
+    const G = VG.g, tol = 12 / PW.view.s; if (!G) return p;
+    let best = null, bd = tol;
+    G.V.forEach(v => { const d = Math.hypot(v[0] - p[0], v[1] - p[1]); if (d < bd) { bd = d; best = v; } });
+    if (best) return [best[0], best[1]];
+    const P = VG.vec && NotchVec.lineNear(VG.vec, p, tol * 0.8);
+    if (P) { let bq = null, bd2 = Infinity; for (let i = 1; i < P.pts.length; i++) { const a = P.pts[i - 1], b = P.pts[i], dx = b[0] - a[0], dy = b[1] - a[1], L2 = dx * dx + dy * dy || 1; let t = ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / L2; t = Math.max(0, Math.min(1, t)); const q = [a[0] + dx * t, a[1] + dy * t], d = Math.hypot(q[0] - p[0], q[1] - p[1]); if (d < bd2) { bd2 = d; bq = q; } } if (bq) return bq; }
+    return p;
+  }
+  async function pwAddLine(a, b) {
+    if (Math.hypot(b[0] - a[0], b[1] - a[1]) < 1) return;
+    vEdits().extra.push([a, b]);
+    PW.vsel = new Set(); if (FILL.vsel) { selClear(); FILL.vsel = null; FILL.vpts = null; }
+    record(); await pwGraph(); toast('Line added · it closes or splits the shapes it crosses'); pwTiles(); pwDraw();
+  }
+  function pwDrawLines(g) {
+    const v = PW.view, ed = S.vEdits; 
+    if (ed && VG.vec && (PW.tool === 'unline' || PW.tool === 'addline' || PW.tool === 'shape')) {
+      if (ed.ignore.length) { const ids = new Set(ed.ignore); g.save(); g.strokeStyle = '#FF6B5E'; g.lineWidth = 2.2 / v.s; g.setLineDash([5 / v.s, 4 / v.s]); g.beginPath(); VG.vec.polys.forEach(P => { if (!ids.has(P.id)) return; P.pts.forEach((q, i) => i ? g.lineTo(q[0], q[1]) : g.moveTo(q[0], q[1])); }); g.stroke(); g.restore(); }
+    }
+    if (ed && ed.extra.length) { g.save(); g.strokeStyle = '#C9A24B'; g.lineWidth = 2.2 / v.s; g.beginPath(); ed.extra.forEach(e => { g.moveTo(e[0][0], e[0][1]); g.lineTo(e[1][0], e[1][1]); }); g.stroke(); g.restore(); }
+    if (PW.lineDraft) { const [a, b] = PW.lineDraft; g.save(); g.strokeStyle = '#C9A24B'; g.lineWidth = 2 / v.s; g.setLineDash([6 / v.s, 4 / v.s]); g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.stroke(); g.setLineDash([]); [a, b].forEach(q => { g.beginPath(); g.arc(q[0], q[1], 4 / v.s, 0, Math.PI * 2); g.stroke(); }); g.restore(); }
+    // the exact outline of what you're marking, on the designer's lines
+    if (FILL.vpts && FILL.count) { g.save(); g.strokeStyle = '#FF8A3D'; g.lineWidth = 2.4 / v.s; g.lineJoin = 'round'; g.beginPath(); FILL.vpts.forEach((q, i) => i ? g.lineTo(q[0], q[1]) : g.moveTo(q[0], q[1])); g.closePath(); g.stroke(); g.restore(); }
+  }
+  function pwShapeOpts() {
+    const one = !!PW.shapeOne;
+    $$('[data-pwshape]').forEach(b => { const on = (b.dataset.pwshape === 'one') === one; b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on)); });
+  }
+
   function pwSetTool(t) {
     PW.tool = t;
     $('#pwOpts').hidden = t !== 'brush'; pwStage.classList.toggle('brush', t === 'brush');
+    $('#pwShapeOpts').hidden = t !== 'shape'; if (t === 'shape') pwShapeOpts();
+    if (t === 'shape' || t === 'unline' || t === 'addline') pwGraph().then(() => pwDraw());
     if (t === 'brush') pwBrushSize(PW.brush);
     $$('[data-pwt]').forEach(b => { const on = b.dataset.pwt === t; b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on)); });
   }
@@ -3608,7 +3946,8 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
     PW.prevOneAt = S.oneAt;
     fillGrid(); selClear(); FILL.hist = [];
     $('#pwFile').textContent = S.fileName || 'Sample pattern';
-    pwEl.hidden = false; pwSetTool('fill'); pwSetMode('add');
+    pwEl.hidden = false; pwSetTool('fill'); pwSetMode('add'); PW.vsel = new Set(); FILL.vsel = null; FILL.vpts = null;
+    pageVectors().then(v => { if (v && PW.open && PW.tool === 'fill' && !FILL.count) pwSetTool('shape'); }).catch(() => {});
     pwSize(); pwFit(); pwTiles();
   }
   function closePieces(keep) {
@@ -3776,6 +4115,7 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
     findPiecesNow();
   });
   $$('[data-pwt]').forEach(b => b.addEventListener('click', () => pwSetTool(b.dataset.pwt)));
+  $$('[data-pwshape]').forEach(b => b.addEventListener('click', () => { PW.shapeOne = b.dataset.pwshape === 'one'; pwShapeOpts(); }));
   $$('[data-pwm]').forEach(b => b.addEventListener('click', () => pwSetMode(b.dataset.pwm)));
   $('#pwUndo').addEventListener('click', pwUndo);
   $('#pwFit').addEventListener('click', () => pwFit());
@@ -3800,6 +4140,8 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
       const pan = PW.space || e.button === 1 || e.button === 2;
       gest = { kind: pan ? 'pan' : PW.tool, x0: e.clientX, y0: e.clientY, v0: { ...PW.view }, moved: false, add };
       if (gest.kind === 'lasso') PW.draft = [pwMm(e.clientX, e.clientY)];
+      if (gest.kind === 'addline') { const a = pwSnapEnd(pwMm(e.clientX, e.clientY)); PW.lineDraft = [a, a]; }
+      gest.one = e.shiftKey || !!PW.shapeOne;
       if (gest.kind === 'brush') { gest.snap = pwSnapshot(); PW.strokeChanged = false; gest.last = pwMm(e.clientX, e.clientY); PW.hover = gest.last; pwStamp(gest.last, null, add); }
       e.preventDefault();
     });
@@ -3818,7 +4160,8 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
       if (Math.hypot(dx, dy) > 5) gest.moved = true;
       if (gest.kind === 'brush') { const q = pwMm(e.clientX, e.clientY); PW.hover = q; pwStamp(gest.last, q, gest.add); gest.last = q; return; }
       if (gest.kind === 'lasso') { const q = pwMm(e.clientX, e.clientY), l = PW.draft[PW.draft.length - 1]; if (Math.hypot(q[0] - l[0], q[1] - l[1]) * PW.view.s > 2) { PW.draft.push(q); pwDraw(); } return; }
-      if (gest.kind === 'pan' || (gest.kind === 'fill' && gest.moved)) { pwStage.classList.add('grabbing'); PW.view = { s: gest.v0.s, tx: gest.v0.tx + dx, ty: gest.v0.ty + dy }; pwDraw(); }
+      if (gest.kind === 'addline') { if (PW.lineDraft) { PW.lineDraft[1] = pwSnapEnd(pwMm(e.clientX, e.clientY)); pwDraw(); } return; }
+      if (gest.kind === 'pan' || ((gest.kind === 'fill' || gest.kind === 'shape' || gest.kind === 'unline') && gest.moved)) { pwStage.classList.add('grabbing'); PW.view = { s: gest.v0.s, tx: gest.v0.tx + dx, ty: gest.v0.ty + dy }; pwDraw(); }
     });
     const end = e => {
       if (!pts.has(e.pointerId)) return;
@@ -3835,6 +4178,13 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
         if (hit >= 0 && !(PW.redoPiece && S.pieces[hit] === PW.redoPiece.p)) pwPick(hit);
         else pwAct(() => fillTap(at, g0.add));
       }
+      if ((g0.kind === 'shape' || g0.kind === 'unline') && !g0.moved) {
+        const at = pwMm(g0.x0, g0.y0), hit = pwPieceAt(at);
+        if (g0.kind === 'unline') pwUnlineTap(at);
+        else if (hit >= 0 && !FILL.count && !(PW.redoPiece && S.pieces[hit] === PW.redoPiece.p)) pwPick(hit);
+        else pwShapeTap(at, g0.add, g0.one);
+      }
+      if (g0.kind === 'addline') { const d = PW.lineDraft; PW.lineDraft = null; if (d) pwAddLine(d[0], d[1]); else pwDraw(); }
       if (g0.kind === 'brush') { if (PW.strokeChanged) { PW.hist.push(g0.snap); if (PW.hist.length > 40) PW.hist.shift(); } if (e.pointerType !== 'mouse') PW.hover = null; pwTiles(); pwDraw(); }
       if (g0.kind === 'lasso') { const d = PW.draft; PW.draft = null; if (d && d.length > 5) pwAct(() => fillLasso(d, g0.add)); else pwDraw(); }
     };
@@ -3862,6 +4212,9 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
     if (k === 'r' || k === 'R') { pwRotate(); return; }
     if (k === 'l' || k === 'L' || k === 'd' || k === 'D') { pwSetTool('lasso'); return; }
     if (k === 'g' || k === 'G') { pwSetTool('fill'); return; }
+    if (k === 's' || k === 'S') { pwSetTool('shape'); return; }
+    if (k === 'x' || k === 'X') { pwSetTool('unline'); return; }
+    if (k === 'n' || k === 'N') { pwSetTool('addline'); return; }
     if (k === 'b' || k === 'B') { pwSetTool('brush'); return; }
     // brush size, as in Photoshop: [ smaller, ] bigger
     if (k === '[' || k === ']') { if (PW.tool !== 'brush') pwSetTool('brush'); const f = PW.brush < 10 ? 1 : PW.brush < 30 ? 2 : 5; pwBrushSize(PW.brush + (k === ']' ? f : -f)); return; }
@@ -4027,7 +4380,7 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
       buildLayers();
       $('#pageRow').hidden = pdf.numPages < 2; S.asm = null; ASM.last = null;
       S.rot = 0; S.flip = false; S.pivotWhole = null; S.flipWhole = null; S.matSel = null; S.pieces = []; S.curPiece = -1; S.oneAt = false; $('#oneAtChk').checked = false;
-      S.lines = S.lines.filter(l => !l.pinned); S.foldId = null; S.sheetOff = false; S.ptEdit = null; VEC.key = null; VEC.data = null;
+      S.lines = S.lines.filter(l => !l.pinned); S.foldId = null; S.sheetOff = false; S.vEdits = null; S.ptEdit = null; VEC.key = null; VEC.data = null;
       await loadMarks(id);
       HIST.undo = []; HIST.redo = []; HIST.last = null;
       if (resume) {
@@ -5677,7 +6030,7 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
     const made = []; let traced = 0;
     for (const p of list) {
       let r = null;
-      try { const m = maskOf(p); r = vec ? NotchVec.buildOutline(vec, m) : NotchVec.traceOutline(m, null); } catch (err) { console.error(err); }
+      try { if (p.vpts && p.vpts.length > 2) r = { pts: p.vpts.map(q => q.slice()), kind: 'vector', marks: vec ? NotchVec.marksFor(vec, p.vpts) : [] }; else { const m = maskOf(p); r = vec ? NotchVec.buildOutline(vec, m) : NotchVec.traceOutline(m, null); } } catch (err) { console.error(err); }
       if (!r || !r.pts || r.pts.length < 3) continue;
       if (r.kind === 'traced') traced++;
       const sheet = r.pts.concat([r.pts[0].slice()]), world = sheet.map(c => toWorld(canvasToLocal(c)));
@@ -5895,7 +6248,7 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
     const at = toMm(barSpace().mid, innerHeight / 2);
     const l = { id: newPcId(), type: 'free', name: S.lines.some(x => x.name === r.name) ? uniqueName(r.name) : r.name,
       pts: pts0.map(q => [q[0] - cx + at[0], q[1] - cy + at[1]]), pc: { pid: r.pid, file: r.file, kind: r.kind, pts0 },
-      color: 'pattern', dash: 'solid', wm: 1, extend: 'none', ruler: false, noLabel: true, rot: 0 };
+      color: 'red', dash: 'solid', wm: 1, extend: 'none', ruler: false, noLabel: true, rot: 0 };
     MARKS.set(l.id, r.marks || []);
     S.lines.push(l); S.selId = l.id; renderLineList(); drawLines(); record(); saveMarks();
     toast('"' + l.name + '" from ' + r.file.replace(/\.pdf$/i, '') + ' · drag it beside your pieces to compare');
@@ -6171,7 +6524,7 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
     return JSON.stringify({
       pos: [Math.round(S.pc.x * 10) / 10, Math.round(S.pc.y * 10) / 10], rot: S.rot, flip: S.flip,
       lines: S.lines, selId: S.selId, pieces: S.pieces.map(p => ({ ...p, nameCands: undefined })), curPiece: S.curPiece, oneAt: S.oneAt, dimCut: S.dimCut,
-      sheet: !!S.sheetOff, layers, fold: S.foldId, look: [S.bg, S.patCol, S.boost, S.patHex, S.gridHex], grid: [S.grid, S.gridSize, S.gridAlpha, S.gridCol], ruler: [S.ruler, S.lunit]
+      sheet: !!S.sheetOff, vedits: S.vEdits || null, layers, fold: S.foldId, look: [S.bg, S.patCol, S.boost, S.patHex, S.gridHex], grid: [S.grid, S.gridSize, S.gridAlpha, S.gridCol], ruler: [S.ruler, S.lunit]
     });
   }
   function record() {
@@ -6195,7 +6548,7 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
     const d = JSON.parse(json);
     HIST.restoring = true;
     S.pc = { x: d.pos[0], y: d.pos[1] }; S.rot = d.rot; S.flip = d.flip;
-    S.lines = d.lines; S.selId = d.selId; S.foldId = d.fold || null; S.sheetOff = !!d.sheet; S.pieces = d.pieces; S.pieces.forEach(p => { if (/^Piece \d+$/i.test((p.name || '').trim())) p.name = ''; }); S.curPiece = d.curPiece; S.oneAt = d.oneAt; S.dimCut = d.dimCut;
+    S.lines = d.lines; S.selId = d.selId; S.foldId = d.fold || null; S.sheetOff = !!d.sheet; S.vEdits = d.vedits || null; S.pieces = d.pieces; S.pieces.forEach(p => { if (/^Piece \d+$/i.test((p.name || '').trim())) p.name = ''; }); S.curPiece = d.curPiece; S.oneAt = d.oneAt; S.dimCut = d.dimCut;
     [S.ruler, S.lunit] = d.ruler; [S.grid, S.gridSize, S.gridAlpha, S.gridCol] = d.grid;
     $('#oneAtChk').checked = S.oneAt; $('#dimCutChk').checked = S.dimCut; $('#rulerChk').checked = S.ruler; syncRulerBtn(); $('#gridChk').checked = S.grid; syncGridBtn();
     $$('[data-lunit]').forEach(x => x.classList.toggle('on', x.dataset.lunit === S.lunit));
@@ -7876,7 +8229,7 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
   if (PHONE) phoneStart();
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { drawGrid(); drawTest(); drawLines(); });
   // automated checks only (never on in normal use)
-  if (/[?&]notchtest\b/.test(location.search)) window.__N = { S, AI, aiFind, cellsUnder, openPieces, FILL, fillTapWith, selApply, MARKS, separatePieces, setSheet, flipSel, pcAt, putBack, fillGrid, fillTap, fillMakePiece, selClear, toMm, toScreen, drawLines, renderPieces, go, bringPiece, importPc, saveNow, togglePtEdit, pcPointGesture, lineEditGesture, rotateSel, P, DB };
+  if (/[?&]notchtest\b/.test(location.search)) window.__N = { S, PW, VG, pwGraph, pwShapeTap, pwUnlineTap, pwAddLine, pwSave, AI, aiFind, cellsUnder, openPieces, FILL, fillTapWith, selApply, MARKS, separatePieces, setSheet, flipSel, pcAt, putBack, fillGrid, fillTap, fillMakePiece, selClear, toMm, toScreen, drawLines, renderPieces, go, bringPiece, importPc, saveNow, togglePtEdit, pcPointGesture, lineEditGesture, rotateSel, P, DB };
 })();
 </script>
 
