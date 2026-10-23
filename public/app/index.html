@@ -349,9 +349,11 @@ kbd { font-family: var(--mono); border: 1px solid var(--line); padding: 1px 5px;
 .subtools .seg .btn { height: 34px; font-size: 10px; }
 .litem { border: 1px solid var(--line); }
 .litem.sel { border-color: var(--brass); }
-.lrow { display: grid; grid-template-columns: 28px 26px minmax(0,1fr) 34px; align-items: center; gap: 6px; padding: 2px 2px 0 8px; cursor: pointer; }
+.lrow { display: grid; grid-template-columns: 26px 24px 26px minmax(0,1fr) 34px; align-items: center; gap: 6px; padding: 2px 2px 0 8px; cursor: pointer; }
 .leye { width: 28px; height: 28px; border: none; background: transparent; color: var(--faint); cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0; }
 .leye.on { color: var(--brass); }
+.llock { width: 24px; height: 28px; border: none; background: transparent; color: var(--faint); cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0; }
+.llock.on { color: var(--brass); }
 .cwheel { position: relative; width: 24px; height: 24px; border-radius: 50%; background: conic-gradient(#ff3b30, #ffcc00, #34c759, #00c7be, #007aff, #af52de, #ff3b30); display: flex; align-items: center; justify-content: center; cursor: pointer; }
 .cwheel i { width: 14px; height: 14px; border-radius: 50%; box-shadow: 0 0 0 2px var(--panel); }
 .cwheel input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; border: 0; padding: 0; }
@@ -2476,7 +2478,7 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
       const pad = 8 * mpp;
       if (mem.length > 1) { g.save(); g.strokeStyle = M.acc; g.globalAlpha = 0.7; g.lineWidth = lw(); g.setLineDash([4 * mpp, 4 * mpp]); g.strokeRect(x0 - pad, y0 - pad, x1 - x0 + pad * 2, y1 - y0 + pad * 2); g.restore(); }
       const ids = new Set(mem.map(x => x.id)), locked = mem.some(x => x.rel && !ids.has(x.rel.ref));
-      if (!S.pick && S.tool === 'move' && !locked && !(S.locked && mem.some(x => x.pc))) {
+      if (!S.pick && S.tool === 'move' && !locked && !objLocked(mem[0])) {
         const curveSel = mem.some(x => x.type === 'curve'), hy0 = curveSel ? Math.min(y0, ...mem.filter(x => x.type === 'curve').flatMap(x => x.nodes.flatMap(n => [n.i[1], n.o[1]]))) : y0;
         const h = [cx, hy0 - pad - (curveSel ? 40 : 30) * mpp], r = 10 * mpp;
         S.rotHandle = { p: h, c: [cx, cy] };
@@ -2551,6 +2553,10 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
       eye.title = l.hidden ? 'Show on the mat' : 'Hide on the mat'; eye.setAttribute('aria-label', eye.title + ': ' + l.name); eye.setAttribute('aria-pressed', String(!l.hidden));
       eye.innerHTML = l.hidden ? '<svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12z"/><circle cx="12" cy="12" r="3"/><path d="M4 20L20 4"/></svg>' : '<svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>';
       eye.addEventListener('click', e => { e.stopPropagation(); const v = !l.hidden, grp = isMarkStroke(l) ? S.lines.filter(x => x.group === l.group) : [l]; grp.forEach(x => { if (v) x.hidden = true; else delete x.hidden; }); if (v && grp.some(x => x.id === S.selId)) S.selId = null; renderLineList(); drawLines(); if (typeof renderPatternList === 'function') renderPatternList(); });
+      const lk = document.createElement('button'); lk.type = 'button'; lk.className = 'llock' + (l.locked ? ' on' : '');
+      lk.title = l.locked ? 'Locked · tap to unlock' : 'Lock in place'; lk.setAttribute('aria-label', lk.title + ': ' + l.name); lk.setAttribute('aria-pressed', String(!!l.locked));
+      lk.innerHTML = '<svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><rect x="5" y="11" width="14" height="9" rx="1.5"/><path d="' + (l.locked ? 'M8 11V8a4 4 0 0 1 8 0v3' : 'M8 11V8a4 4 0 0 1 7.7-1.5') + '"/></svg>';
+      lk.addEventListener('click', e => { e.stopPropagation(); const v = !l.locked; grpOf(l).forEach(x => { if (v) x.locked = true; else delete x.locked; }); if (v && S.ptEdit && grpOf(l).some(x => x.id === S.ptEdit)) S.ptEdit = null; renderLineList(); drawLines(); record(); toast(v ? '"' + l.name + '" locked in place' : '"' + l.name + '" unlocked'); });
       // a colour wheel for each object
       const sw = document.createElement('label'); sw.className = 'cwheel'; sw.title = 'Colour of ' + l.name;
       const dot = document.createElement('i'); dot.style.background = colorOf(l);
@@ -2567,7 +2573,7 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
       more.addEventListener('click', e => { e.stopPropagation(); const r = more.getBoundingClientRect(); toggleMenu(l.id, () => lineMenu(l, r.right, r.bottom + 4, true)); });
       row.addEventListener('click', e => { if (S.pick) { togglePick(l); renderLineList(); return; } selectLine(l.id, e.target === inp); });
       if (S.pick && S.pick.has(l.id)) item.classList.add('sel');
-      row.append(eye, sw, inp, more);
+      row.append(eye, lk, sw, inp, more);
       const opts = document.createElement('div'); opts.className = 'lopts';
       const mk = (label, pressed, title, fn) => {
         const b = document.createElement('button'); b.type = 'button'; b.className = 'ltog'; b.textContent = label; b.title = title;
@@ -5467,6 +5473,11 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
   // Lock: nothing on the mat moves, turns or flips (drawing and editing lines still work)
   S.locked = pget('pp_locked') === '1';
   let lockSaid = 0;
+  // one object locked (its padlock in Objects): it can't be moved, turned, flipped or reshaped on its own;
+  // when the whole mat moves it goes along, so what's lined up stays lined up
+  const grpOf = l => l.group ? S.lines.filter(x => x.group === l.group) : [l];
+  const objLocked = l => !!l && (grpOf(l).some(x => x.locked) || (S.locked && grpOf(l).some(x => x.pc)));
+  function objLockedSay(l) { if (!objLocked(l)) return false; if (S.locked) return lockedSay(); if (Date.now() - lockSaid > 2500) { lockSaid = Date.now(); toast('"' + l.name + '" is locked · tap its padlock in Objects to move it'); } return true; }
   function lockedSay() { if (!S.locked) return false; if (Date.now() - lockSaid > 2500) { lockSaid = Date.now(); toast('Locked · tap the padlock in the toolbox to move things again'); } return true; }
   function syncLock() { const b = $('#tbLock'); if (!b) return; b.classList.toggle('on', S.locked); b.setAttribute('aria-pressed', String(S.locked)); b.title = S.locked ? 'Locked · tap to unlock' : 'Lock: nothing on the mat can be moved, turned or flipped by accident · lines can still be drawn'; try { drawLines(); } catch {} }
   // objects that sit on the mat by themselves (brought in, lining): they go along when everything moves
@@ -5476,7 +5487,7 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
   function movePattern(dx, dy) {
     if (lockedSay()) return;
     const sl = S.step === 'project' ? selLine() : null;
-    if (sl && sl.pc) { applyObjs(snapObjs(selMembers()), q => [q[0] + dx, q[1] + dy]); drawLines(); record(); return; }
+    if (sl && sl.pc) { if (objLockedSay(sl)) return; applyObjs(snapObjs(selMembers()), q => [q[0] + dx, q[1] + dy]); drawLines(); record(); return; }
     applyObjs(snapObjs(freeObjs()), q => [q[0] + dx, q[1] + dy]);
     S.pc.x += dx; S.pc.y += dy; placePattern();
   }
@@ -6043,7 +6054,7 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
     }
     // the selected curve: drag a bend point (with its handles) or a handle; double-tap a middle point to remove it
     const cs = selLine();
-    if (cs && cs.type === 'curve' && (S.tool === 'move' || S.tool === 'line')) {
+    if (cs && cs.type === 'curve' && !objLocked(cs) && (S.tool === 'move' || S.tool === 'line')) {
       const N = cs.nodes, tol = pxToMm(touch ? 26 : 12, [e.clientX, e.clientY]);
       let hb = null, hd2 = tol;
       N.forEach((n, k) => {
@@ -6074,7 +6085,7 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
     // ends of straight lines (selected line first)
     let best = null, bd = endTol;
     const order = [selLine(), ...S.lines].filter(Boolean);
-    order.forEach(l => { if (l.type !== 'straight') return; ['a', 'b'].forEach(end => { const d = Math.hypot(l[end][0] - p0[0], l[end][1] - p0[1]); if (d < bd) { bd = d; best = { l, end }; } }); });
+    order.forEach(l => { if (l.type !== 'straight' || l.hidden || objLocked(l)) return; ['a', 'b'].forEach(end => { const d = Math.hypot(l[end][0] - p0[0], l[end][1] - p0[1]); if (d < bd) { bd = d; best = { l, end }; } }); });
     const commit = lineCommit;
     if (best) {
       const { l, end } = best, orig = l[end].slice();
@@ -6101,10 +6112,10 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
     });
     if (!hit && S.tool === 'move') hit = pcAt(p0);
     if (!hit) return null;
-    if (S.locked && (hit.pc || (hit.group && S.lines.some(x => x.group === hit.group && x.pc)))) {
+    if (objLocked(hit)) {
       if (S.selId !== hit.id) { S.selId = hit.id; renderLineList(); drawLines(); }
       const sx0 = e.clientX, sy0 = e.clientY;
-      return { move: ev => { if (Math.hypot(ev.clientX - sx0, ev.clientY - sy0) > 8) lockedSay(); }, up() {}, abort() {} };
+      return { move: ev => { if (Math.hypot(ev.clientX - sx0, ev.clientY - sy0) > 8) objLockedSay(hit); }, up() {}, abort() {} };
     }
     const l = hit, grp = l.group ? S.lines.filter(x => x.group === l.group) : [l];
     const orig = grp.map(x => ({ x, cp: x.type === 'curve' ? curveFlat(x).map(q => q.slice()) : null, a: x.a && x.a.slice(), b: x.b && x.b.slice(), pts: x.pts && x.pts.map(q => q.slice()) })).sort((p, q) => (p.x.rel ? 1 : 0) - (q.x.rel ? 1 : 0));
@@ -6157,8 +6168,8 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
       mm0: [(A[0] + B[0]) / 2, (A[1] + B[1]) / 2], angMm0: Math.atan2(B[1] - A[1], B[0] - A[0]),
       pc: { x: S.pc.x, y: S.pc.y }, rot: S.rot };
     const sl = S.step === 'project' ? selLine() : null;
-    if (!(sl && sl.pc && !sl.hidden)) pinch.free = snapObjs(freeObjs());
-    if (sl && sl.pc && !sl.hidden) pinch.objs = selMembers().map(l => ({ l, cp: l.type === 'curve' ? curveFlat(l).map(q => q.slice()) : null, a: l.a && l.a.slice(), b: l.b && l.b.slice(), pts: l.pts && l.pts.map(q => q.slice()), rot0: l.rot || 0 }));
+    if (!(sl && sl.pc && !sl.hidden && !objLocked(sl))) pinch.free = snapObjs(freeObjs());
+    if (sl && sl.pc && !sl.hidden && !objLocked(sl)) pinch.objs = selMembers().map(l => ({ l, cp: l.type === 'curve' ? curveFlat(l).map(q => q.slice()) : null, a: l.a && l.a.slice(), b: l.b && l.b.slice(), pts: l.pts && l.pts.map(q => q.slice()), rot0: l.rot || 0 }));
   }
   function updatePinch() {
     const [cx, cy, d] = mid2();
@@ -6490,7 +6501,7 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
   function pcAt(p) { for (let i = S.lines.length - 1; i >= 0; i--) { const l = S.lines[i]; if (l.pc && !offMat(l) && pcInside(l, p)) return l; } return null; }
   // drag, add or remove a point of the selected piece's outline (Edit points)
   function pcPointGesture(e, p0) {
-    const l = selLine(); if (!l || !l.pc || S.ptEdit !== l.id || S.tool !== 'move' || S.locked) return null;
+    const l = selLine(); if (!l || !l.pc || S.ptEdit !== l.id || S.tool !== 'move' || objLocked(l)) return null;
     const touch = e.pointerType !== 'mouse', tol = pxToMm(touch ? 22 : 10, [e.clientX, e.clientY]), pts = l.pts, n = pts.length - 1;
     let k = -1, bd = tol;
     for (let i = 0; i < n; i++) { const d = Math.hypot(pts[i][0] - p0[0], pts[i][1] - p0[1]); if (d < bd) { bd = d; k = i; } }
@@ -6537,6 +6548,7 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
   function flipSel(phi) {
     if (lockedSay()) return true;
     const m = selMembers(); if (!m.length) return false;
+    if (objLockedSay(m[0])) return true;
     const [x0, y0, x1, y1] = bboxOf(m), cx = (x0 + x1) / 2, cy = (y0 + y1) / 2, lr = phi === 90;
     const f = q => lr ? [2 * cx - q[0], q[1]] : [q[0], 2 * cy - q[1]];
     m.forEach(l => {
@@ -8115,7 +8127,7 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
   function selAngle() { const m = S.step === 'project' ? selMembers() : []; return m.length ? (m[0].rot || 0) : null; }
   function rotateSel(d) {
     const m = selMembers(); if (!m.length || !d) return;
-    if (m.some(x => x.pc) && lockedSay()) { syncRotUI(); return; }
+    if ((m.some(x => x.pc) && lockedSay()) || objLockedSay(m[0])) { syncRotUI(); return; }
     // turn round the middle of all their points (it stays put however far they turn)
     let sx = 0, sy = 0, n = 0;
     m.forEach(l => (l.type === 'curve' ? curveFlat(l) : ptsOf(l)).forEach(q => { sx += q[0]; sy += q[1]; n++; }));
