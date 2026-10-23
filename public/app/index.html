@@ -372,6 +372,12 @@ kbd { font-family: var(--mono); border: 1px solid var(--line); padding: 1px 5px;
 .ext button[aria-pressed="true"] { color: var(--brass); border-color: var(--brass); }
 .srow { display: grid; grid-template-columns: 34px minmax(0,1fr) 34px; align-items: center; gap: 6px; border: 1px solid var(--line); padding: 4px 2px 4px 10px; cursor: pointer; background: transparent; text-align: left; }
 .srow:hover { border-color: var(--mute); }
+#fabBoxes .srow { min-height: 56px; }
+#fabBoxes .slot { font-size: 9.5px; letter-spacing: .16em; text-transform: uppercase; color: var(--mute); }
+#fabBoxes .srow.cur .slot { color: var(--brass); }
+.filebtn.addbox { width: 100%; background: transparent; font: inherit; color: var(--mute); }
+.filebtn.addbox .plus { font-size: 20px; line-height: 1; margin-right: 2px; }
+.filebtn.addbox b { color: var(--ink); }
 .srow .eye { width: 32px; height: 32px; border: none; background: transparent; color: var(--faint); cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0; }
 .srow .eye.on { color: var(--brass); }
 .srow .eye:hover { color: var(--ink); }
@@ -756,6 +762,7 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
         <span id="dropAct">OPEN PDF</span>
         <input type="file" id="pdfInput" accept="application/pdf" hidden>
       </label>
+      <div class="group" id="fabBoxes" style="gap:6px" hidden></div>
       <div class="row2" id="pageRow" hidden>
         <button class="btn slim" id="prevPage">← Page</button>
         <button class="btn slim" id="nextPage">Page →</button>
@@ -784,7 +791,7 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
       </div>
     </div>
 
-    <details class="fold" data-fold="saved" id="patFold">
+    <details class="fold" data-fold="saved" id="patFold" hidden>
       <summary>Project <span class="count" id="patCount"></span></summary>
       <div class="body">
         <p class="note" id="patNote">Open a pattern PDF above to start a project. It's kept on this device with its page layout, pieces, cut ticks and lines, and reopens where you left off.</p>
@@ -836,7 +843,7 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
           <button class="btn" id="editPiecesBtn" title="Mark each pattern piece once, on the whole sheet">Mark pieces</button>
           <button class="btn slim" id="asmOpen2" hidden title="Back to putting the pages together, just as you left it">Edit page layout</button>
           <button class="btn slim" id="addPieceBtn" hidden></button><button class="btn slim" id="findPieces" hidden></button>
-          <button class="btn slim" id="importPieces" title="Open a pattern PDF, tap the pieces you want and bring them in">Import pieces from a PDF…</button>
+          <button class="btn slim" id="importPieces" hidden title="Open a pattern PDF, tap the pieces you want and bring them in">Import pieces from a PDF…</button>
           <input type="file" id="piecesIn" accept="application/pdf,.pdf" hidden>
         </div>
         <div class="group" id="sepBox" hidden>
@@ -4646,7 +4653,7 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
     try {
       await DB.put('work', id, rec); SAVE.failed = false;
       if (!SAVE.asked && navigator.storage && navigator.storage.persist) { SAVE.asked = true; navigator.storage.persist().catch(() => {}); }
-      if ($('#patFold').open || !PROJ.main || PROJ.main.id !== id && (!PROJ.lining || PROJ.lining.id !== id)) renderPatternList();
+      renderPatternList();
     } catch (err) { if (SAVE.lastSig === sig) SAVE.lastSig = ''; saveFailed(); }
   }
   setInterval(() => { if (document.visibilityState === 'visible') saveNow(); }, 5000);
@@ -4792,7 +4799,8 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
 
   async function renderPatternList() {
     const box = $('#patList');
-    if (await loadProject() === null) { box.textContent = ''; $('#patNote').textContent = 'Saving isn\'t available in this browser (private browsing, or storage turned off).'; $('#patNote').hidden = false; $('#addLining').hidden = true; $('#patTools').hidden = true; return; }
+    const fb = $('#fabBoxes');
+    if (await loadProject() === null) { fb.hidden = true; $('#drop').hidden = false; box.textContent = ''; $('#patNote').textContent = 'Saving isn\'t available in this browser (private browsing, or storage turned off).'; $('#patNote').hidden = false; $('#addLining').hidden = true; $('#patTools').hidden = true; return; }
     box.textContent = '';
     const row = (r, label) => {
       const cur = r.id === SAVE.id;
@@ -4804,7 +4812,7 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
       const bits = [];
       if (r.asm) bits.push((r.asm.to - r.asm.from + 1) + ' pages joined'); else if (r.pages > 1) bits.push(r.pages + ' pages');
       if (r.pieces) bits.push(r.cut ? r.cut + ' / ' + r.pieces + ' cut' : r.pieces + ' piece' + (r.pieces > 1 ? 's' : ''));
-      bits.push(cur ? 'open now' : whenText(r.opened));
+      bits.push(cur ? 'marking this one' : 'tap to mark this one');
       m.textContent = bits.join(' · ');
       sn.append(sl, b, m);
       const eye = document.createElement('button'); eye.type = 'button'; eye.className = 'eye';
@@ -4819,7 +4827,16 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
         const more = document.createElement('button'); more.type = 'button'; more.className = 'more'; more.textContent = '⋯'; more.setAttribute('aria-label', 'Lining options');
         more.addEventListener('click', e => { e.stopPropagation(); const rc = more.getBoundingClientRect(); toggleMenu('lining', () => liningMenu(r, rc.right, rc.bottom + 4)); });
         el.append(more);
-      } else el.append(document.createElement('span'));
+      } else {
+        const more = document.createElement('button'); more.type = 'button'; more.className = 'more'; more.textContent = '⋯'; more.setAttribute('aria-label', 'Main fabric options');
+        more.addEventListener('click', e => { e.stopPropagation(); const rc = more.getBoundingClientRect(); toggleMenu('mainfab', () => openMenu('Main fabric', [
+          { label: 'Change file · new project…', fn: () => askNewProject(null) },
+          { label: 'Clear project…', danger: true, keepOpen: true, fn: () => openMenu('Clear the project?', [
+            { label: 'Clear · both PDFs and their work go', danger: true, fn: () => clearProject() },
+            { label: '← Back', keepOpen: true, fn: () => more.click() }], rc.right, rc.bottom + 4, true, 'mainfab') }
+        ], rc.right, rc.bottom + 4, true, 'mainfab')); });
+        el.append(more);
+      }
       const openIt = () => { if (cur) return; m.textContent = 'opening…'; switchPattern(r.id).then(() => renderPatternList()); };
       el.addEventListener('click', openIt);
       el.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openIt(); } });
@@ -4827,6 +4844,11 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
     };
     if (PROJ.main) row(PROJ.main, 'Main fabric');
     if (PROJ.lining) row(PROJ.lining, 'Lining');
+    // the boxes under the file box: main fabric, lining (or + Add lining), + Import pieces
+    fb.textContent = ''; fb.hidden = !PROJ.main; $('#drop').hidden = !!PROJ.main;
+    [...box.children].forEach(el => fb.append(el));
+    if (PROJ.main && !PROJ.lining) { const a = document.createElement('button'); a.type = 'button'; a.className = 'filebtn addbox'; a.innerHTML = '<span class="plus">+</span><b>Add lining</b><span>PDF</span>'; a.title = 'Add the lining pattern; it shows on the same mat'; a.addEventListener('click', () => pickFile('lining')); fb.append(a); }
+    if (PROJ.main) { const a = document.createElement('button'); a.type = 'button'; a.className = 'filebtn addbox'; a.innerHTML = '<span class="plus">+</span><b>Import pieces</b><span>PDF</span>'; a.title = 'Open another pattern PDF, tap the pieces you want and bring them in'; a.addEventListener('click', () => { const i = $('#piecesIn'); i.value = ''; i.click(); }); fb.append(a); }
     $('#patCount').textContent = PROJ.main ? PROJ.main.name.replace(/\.pdf$/i, '') : '';
     $('#patNote').hidden = !!PROJ.main;
     $('#addLining').hidden = !PROJ.main || !!PROJ.lining;
@@ -8387,12 +8409,13 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
     });
   }
   // Clear: removes every saved pattern (PDFs and their work) from this device; the one on screen stays open but stops saving
-  twoTap($('#clearPatterns'), 'Clear project', async () => {
+  async function clearProject() {
     try { await clearWorkKeepShelf(); await DB.clear('files'); } catch { toast('Could not clear the project'); return; }
     clearTimeout(SAVE.timer); SAVE.id = null; SAVE.ready = false; SAVE.lastSig = ''; pset('pp_last', ''); PROJ.main = PROJ.lining = null;
     showBlank(); renderPatternList();
     toast('Project cleared');
-  }, '✕', () => 'Tap again · clear this project');
+  }
+  twoTap($('#clearPatterns'), 'Clear project', clearProject, '✕', () => 'Tap again · clear this project');
   twoTap($('#resetPattern'), 'Reset pattern', () => {
     S.rot = 0; S.flip = false; S.pivotWhole = null; S.flipWhole = null; S.matSel = null;
     S.lines = []; S.selId = null; S.foldId = null; updateMirror();
