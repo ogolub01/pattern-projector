@@ -118,6 +118,8 @@ input.serif { font-family: var(--serif); font-style: italic; font-size: 18px; }
 #pieceBox .tool.make:hover { background: #D8B55F; color: #0E0E0D; }
 #pieceBox .tool.make:disabled { background: transparent; color: var(--faint); border-color: var(--line); opacity: .6; }
 /* Mark pieces workspace */
+#opick { position: fixed; inset: 0; z-index: 31; background: #0A0A09; display: flex; flex-direction: column; }
+#opick .pwStage { cursor: pointer; }
 #asmAsk { position: fixed; inset: 0; z-index: 40; background: rgba(0,0,0,.6); display: flex; align-items: center; justify-content: center; padding: 16px; }
 #asmAsk .card { width: min(380px, 100%); background: var(--panel); border: 1px solid var(--line); box-shadow: 0 20px 60px rgba(0,0,0,.6); padding: 22px 22px 20px; display: flex; flex-direction: column; gap: 12px; }
 #asmAsk h2 { margin: 0; font-family: var(--serif); font-weight: 400; font-size: 30px; line-height: 1.05; }
@@ -799,7 +801,8 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
             <button class="btn slim toggle" id="foldBtn" aria-pressed="false" title="Show the mirror image on the other side of this line, as if cut on the fold">Mirror on fold</button>
           </div>
         </div>
-        <button class="btn slim" id="bringBtn" title="Lay a separated piece from another of your saved patterns on this mat, to compare">+ Piece from another pattern</button>
+        <button class="btn slim" id="bringBtn" title="Lay pieces from another PDF, or a whole PDF, over this pattern">+ From another PDF…</button>
+        <input type="file" id="otherPdfIn" accept="application/pdf" hidden>
         <div class="group" id="lineTools" hidden><button class="btn danger slim" id="clearLines" title="Removes every line and mark (Undo brings them back)">✕ Clear all lines</button></div>
       </div>
     </details>
@@ -1196,6 +1199,17 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
     </div>
   </div>
   <div class="pwStrip"><div class="pwTiles" id="pwTiles"></div></div>
+</div>
+<div id="opick" hidden>
+  <div class="pwTop">
+    <div class="brand"><span class="eyebrow" id="opFile">Another PDF</span><b>Bring in <i>pieces</i></b></div>
+    <div class="pwActs">
+      <button class="btn" id="opWhole" title="The whole sheet over your pattern, as one object">Whole sheet</button>
+      <button class="btn" id="opCancel">Cancel</button>
+      <button class="btn pwDone" id="opBring" disabled>Bring in</button>
+    </div>
+  </div>
+  <div class="pwStage" id="opStage"><canvas id="opCanvas"></canvas></div>
 </div>
 <div id="phoneBar" aria-label="Notch controls">
   <button class="pbIcon" id="pbFull" aria-label="Full screen"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
@@ -4052,7 +4066,6 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
     fillGrid(); selClear(); FILL.hist = [];
     $('#pwFile').textContent = S.fileName || 'Sample pattern';
     pwEl.hidden = false; pwSetTool('fill'); pwSetMode('add'); PW.vsel = new Set(); FILL.vsel = null; FILL.vpts = null;
-    pageVectors().then(v => { if (v && PW.open && PW.tool === 'fill' && !FILL.count) pwSetTool('shape'); }).catch(() => {});
     pwSize(); pwFit(); pwTiles();
   }
   function closePieces(keep) {
@@ -6222,7 +6235,7 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
     const mk = marksOf(l), F = mk && mk.length ? pcFit(l) : null;
     if (F) {
       g.save(); g.transform(F[0], F[1], F[2], F[3], F[4], F[5]);
-      g.strokeStyle = c; g.fillStyle = c; g.lineWidth = Math.max(0.3, w * 0.55);
+      g.strokeStyle = c; g.fillStyle = c; g.lineWidth = Math.max(0.3, w * (l.pc.kind === 'sheet' ? 0.8 : 0.55));
       [false, true].forEach(dash => {
         g.setLineDash(dash ? [2.4, 1.6] : []); g.beginPath(); let any = false;
         mk.forEach(m => { if (m.dash !== dash || m.fill) return; any = true; m.pts.forEach((q, i) => i ? g.lineTo(q[0], q[1]) : g.moveTo(q[0], q[1])); });
@@ -6233,8 +6246,8 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
       if (anyF) g.fill();
       g.restore();
     }
-    g.strokeStyle = c; g.lineWidth = w; g.setLineDash(dashFor(l, w));
-    g.beginPath(); pts.forEach((p, i) => i ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1])); g.closePath(); g.stroke(); g.setLineDash([]);
+    g.strokeStyle = c; g.lineWidth = w; g.setLineDash(dashFor(l, w)); if (l.pc.kind === 'sheet') g.globalAlpha *= 0.45;
+    g.beginPath(); pts.forEach((p, i) => i ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1])); g.closePath(); g.stroke(); g.setLineDash([]); if (l.pc.kind === 'sheet') g.globalAlpha = l.cut && S.dimCut ? 0.35 : 1;
     if (showLabel(l)) { const b = bboxOf([l]); label(g, l.name + (l.cut ? ' · cut' : ''), [(b[0] + b[2]) / 2, (b[1] + b[3]) / 2], c); }
     // points you can drag, while editing points
     if (isSel && S.ptEdit === l.id && S.H) {
@@ -6314,6 +6327,7 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
     S.lines.push(c); S.selId = c.id; renderLineList(); drawLines(); record(); saveMarks();
     toast('"' + c.name + '" added · drag it into place');
   }
+  const freeName = n => S.lines.some(x => x.name === n) ? uniqueName(n) : n;
   function uniqueName(base) {
     const root = String(base).replace(/\s*\(\d+\)$/, ''); let k = 2;
     while (S.lines.some(x => x.name === root + ' (' + k + ')')) k++;
@@ -6420,7 +6434,130 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
     if (!b.classList.contains('confirm')) { b.classList.add('confirm'); b.textContent = 'Tap again · moved and edited pieces go'; clearTimeout(b._t); b._t = setTimeout(syncSepUI, 3000); return; }
     putBack(S.lines.filter(l => l.pc && l.pc.file === S.fileName)); toast('Pieces back on the sheet');
   });
-  $('#bringBtn').addEventListener('click', e => { const r = e.currentTarget.getBoundingClientRect(); bringPiece(r.right, r.bottom + 4); });
+  $('#bringBtn').addEventListener('click', e => { const r = e.currentTarget.getBoundingClientRect(); otherMenu(r.right, r.bottom + 4); });
+  /* ---------- another PDF over this one (v139) ----------
+     Your pattern stays the main one. From another PDF you can bring in some of its pieces (tap them on its sheet) or
+     the whole sheet; either lands on the mat as see-through objects in red that you move, turn and flip on their own. */
+  const OP = { doc: null, file: null, vec: null, cv: null, sheet: null, cand: [], sel: new Set(), view: null, G: null };
+  function otherMenu(x, y) {
+    openMenu('Bring in', [
+      { label: 'Pieces from another PDF…', fn: () => { OP.want = 'pieces'; $('#otherPdfIn').click(); } },
+      { label: 'A whole PDF over this one…', fn: () => { OP.want = 'whole'; $('#otherPdfIn').click(); } },
+      { label: 'Pieces saved from other patterns…', keepOpen: true, fn: () => bringPiece(x, y) }
+    ], x, y, true, 'bring');
+  }
+  $('#otherPdfIn').addEventListener('change', async e => {
+    const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+    if (!window.pdfjsLib) { toast('The PDF reader did not load'); return; }
+    try {
+      toast('Opening ' + f.name + '…');
+      const doc = await pdfjsLib.getDocument({ data: new Uint8Array(await f.arrayBuffer()) }).promise;
+      const page = await doc.getPage(1), vp = page.getViewport({ scale: PT_TO_MM });
+      const occ = await doc.getOptionalContentConfig().catch(() => null);
+      const vec = await NotchVec.extractVectors(page, pdfjsLib.OPS, occ, vp.transform); vec.sheet = [vp.width, vp.height];
+      if (vec.segs < 20) { toast('That PDF has no drawn lines to bring in (it may be a scan)'); return; }
+      Object.assign(OP, { doc, file: f.name, vec, sheet: vec.sheet, sel: new Set(), G: null, pages: doc.numPages });
+      if (OP.want === 'whole') { bringWhole(); return; }
+      // its sheet, drawn once, to pick pieces from
+      const v2 = page.getViewport({ scale: PT_TO_MM * 2 }), c = document.createElement('canvas'); c.width = Math.ceil(v2.width); c.height = Math.ceil(v2.height);
+      const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height);
+      const ro = { canvasContext: g, viewport: v2, background: 'rgb(255,255,255)' }; if (occ) ro.optionalContentConfigPromise = Promise.resolve(occ);
+      await page.render(ro).promise;
+      freeCanvas(OP.cv); OP.cv = c;
+      OP.cand = NotchVec.loopPieces(vec, vec.sheet).map(c => c.pts);
+      openOther();
+    } catch (err) { console.error(err); toast('That file could not be opened as a PDF'); }
+  });
+  const opEl = $('#opick'), opCv = $('#opCanvas'), opStage = $('#opStage');
+  function openOther() {
+    opEl.hidden = false; $('#opFile').textContent = OP.file + (OP.pages > 1 ? ' · page 1 of ' + OP.pages : '');
+    opFit(); opSync();
+    toast(OP.cand.length ? 'Tap the pieces you want, then Bring in' : 'Tap inside a piece to pick it, then Bring in');
+  }
+  function closeOther() { opEl.hidden = true; }
+  function opFit() {
+    const r = opStage.getBoundingClientRect(), [W, H] = OP.sheet, s = Math.min((r.width - 40) / W, (r.height - 40) / H);
+    OP.view = { s, tx: (r.width - W * s) / 2, ty: (r.height - H * s) / 2 }; opDraw();
+  }
+  function opSync() {
+    const n = OP.sel.size;
+    $('#opBring').disabled = !n; $('#opBring').textContent = n ? 'Bring in ' + n + ' piece' + (n > 1 ? 's' : '') : 'Bring in';
+  }
+  function opDraw() {
+    const r = opStage.getBoundingClientRect(), d = devicePixelRatio || 1;
+    opCv.width = Math.round(r.width * d); opCv.height = Math.round(r.height * d);
+    const g = opCv.getContext('2d'), v = OP.view; g.setTransform(d, 0, 0, d, 0, 0); g.clearRect(0, 0, r.width, r.height);
+    g.save(); g.translate(v.tx, v.ty); g.scale(v.s, v.s);
+    g.imageSmoothingQuality = 'high'; g.drawImage(OP.cv, 0, 0, OP.sheet[0], OP.sheet[1]);
+    OP.cand.forEach((pts, i) => {
+      const on = OP.sel.has(i);
+      g.beginPath(); pts.forEach((q, k) => k ? g.lineTo(q[0], q[1]) : g.moveTo(q[0], q[1])); g.closePath();
+      if (on) { g.fillStyle = 'rgba(255,107,94,.28)'; g.fill(); }
+      g.strokeStyle = on ? '#E5483A' : 'rgba(201,162,75,.9)'; g.lineWidth = (on ? 3 : 1.5) / v.s; g.stroke();
+    });
+    g.restore();
+  }
+  const opAt = (cx, cy) => { const r = opStage.getBoundingClientRect(), v = OP.view; return [(cx - r.left - v.tx) / v.s, (cy - r.top - v.ty) / v.s]; };
+  function opTap(q) {
+    // the smallest found piece under the tap; if none, the shape tapped (as the Shape tool would take it)
+    let hit = -1, ha = Infinity;
+    OP.cand.forEach((pts, i) => { if (NotchVec.inPoly(pts, q[0], q[1])) { const a = Math.abs(NotchVec.area(pts)); if (a < ha) { ha = a; hit = i; } } });
+    if (hit < 0) {
+      OP.G = OP.G || NotchVec.buildGraph(OP.vec);
+      const id = NotchVec.areaAt(OP.G, q); if (id < 0) { toast('Tap inside a piece'); return; }
+      const o = NotchVec.outlineOf(OP.G, NotchVec.wholePiece(OP.G, id)); if (!o) return;
+      OP.cand.push(o.pts); hit = OP.cand.length - 1;
+    }
+    if (OP.sel.has(hit)) OP.sel.delete(hit); else OP.sel.add(hit);
+    opSync(); opDraw();
+  }
+  {
+    const pts = new Map(); let g0 = null;
+    opStage.addEventListener('pointerdown', e => { opStage.setPointerCapture(e.pointerId); pts.set(e.pointerId, [e.clientX, e.clientY]); g0 = { x: e.clientX, y: e.clientY, v: { ...OP.view }, moved: false, pinch: null };
+      if (pts.size === 2) { const [a, b] = [...pts.values()], r = opStage.getBoundingClientRect(), m = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2]; g0.pinch = { d: Math.max(1, Math.hypot(a[0] - b[0], a[1] - b[1])), q: [(m[0] - r.left - OP.view.tx) / OP.view.s, (m[1] - r.top - OP.view.ty) / OP.view.s], v: { ...OP.view } }; } });
+    opStage.addEventListener('pointermove', e => {
+      if (!pts.has(e.pointerId) || !g0) return; pts.set(e.pointerId, [e.clientX, e.clientY]);
+      if (pts.size === 2 && g0.pinch) { const [a, b] = [...pts.values()], r = opStage.getBoundingClientRect(), m = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2], P = g0.pinch, s = Math.max(0.05, Math.min(40, P.v.s * Math.hypot(a[0] - b[0], a[1] - b[1]) / P.d)); OP.view = { s, tx: m[0] - r.left - P.q[0] * s, ty: m[1] - r.top - P.q[1] * s }; g0.moved = true; opDraw(); return; }
+      const dx = e.clientX - g0.x, dy = e.clientY - g0.y; if (Math.hypot(dx, dy) > 5) g0.moved = true;
+      if (g0.moved) { OP.view = { ...g0.v, tx: g0.v.tx + dx, ty: g0.v.ty + dy }; opDraw(); }
+    });
+    const up = e => { if (!pts.has(e.pointerId)) return; pts.delete(e.pointerId); if (g0 && !g0.moved && !pts.size) opTap(opAt(e.clientX, e.clientY)); if (!pts.size) g0 = null; };
+    opStage.addEventListener('pointerup', up); opStage.addEventListener('pointercancel', up);
+    opStage.addEventListener('wheel', e => { e.preventDefault(); const r = opStage.getBoundingClientRect(), v = OP.view, s = Math.max(0.05, Math.min(40, v.s * Math.exp(-e.deltaY * 0.0015))), mx = e.clientX - r.left, my = e.clientY - r.top; OP.view = { s, tx: mx - (mx - v.tx) * s / v.s, ty: my - (my - v.ty) * s / v.s }; opDraw(); }, { passive: false });
+  }
+  addEventListener('resize', () => { if (!opEl.hidden) opFit(); });
+  $('#opCancel').addEventListener('click', closeOther);
+  $('#opWhole').addEventListener('click', () => { closeOther(); bringWhole(); });
+  $('#opBring').addEventListener('click', () => {
+    const list = [...OP.sel].map(i => OP.cand[i]); if (!list.length) return;
+    closeOther();
+    // keep them laid out as they were on their sheet, centred in the free part of the mat
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity; list.forEach(pts => pts.forEach(q => { x0 = Math.min(x0, q[0]); y0 = Math.min(y0, q[1]); x1 = Math.max(x1, q[0]); y1 = Math.max(y1, q[1]); }));
+    const at = toMm(barSpace().mid, innerHeight / 2), dx = at[0] - (x0 + x1) / 2, dy = at[1] - (y0 + y1) / 2, base = OP.file.replace(/\.pdf$/i, '');
+    let firstId = null;
+    list.forEach((pts, k) => {
+      const pts0 = pts.concat([pts[0]]).map(q => [Math.round(q[0] * 100) / 100, Math.round(q[1] * 100) / 100]);
+      const l = { id: newPcId(), type: 'free', name: freeName(base + ' · piece ' + (k + 1)), pts: pts0.map(q => [q[0] + dx, q[1] + dy]),
+        pc: { pid: 'o' + k + '_' + Date.now(), file: OP.file, kind: 'vector', pts0 }, color: 'red', dash: 'solid', wm: 1, extend: 'none', ruler: false, noLabel: false, rot: 0 };
+      MARKS.set(l.id, NotchVec.packMarks(NotchVec.marksFor(OP.vec, pts)));
+      S.lines.push(l); shelve(l); firstId = firstId || l.id;
+    });
+    S.selId = firstId; renderLineList(); drawLines(); record(); saveMarks(); openFold('lines');
+    toast(list.length + ' piece' + (list.length > 1 ? 's' : '') + ' from ' + base + ' · drag to move, the round handle turns, long-press for more');
+  });
+  function bringWhole() {
+    const vec = OP.vec, base = OP.file.replace(/\.pdf$/i, '');
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    vec.polys.forEach(P => P.pts.forEach(q => { x0 = Math.min(x0, q[0]); y0 = Math.min(y0, q[1]); x1 = Math.max(x1, q[0]); y1 = Math.max(y1, q[1]); }));
+    const frame = [[x0, y0], [x1, y0], [x1, y1], [x0, y1], [x0, y0]];
+    const at = toMm(barSpace().mid, innerHeight / 2), dx = at[0] - (x0 + x1) / 2, dy = at[1] - (y0 + y1) / 2;
+    const l = { id: newPcId(), type: 'free', name: freeName(base + ' · whole'), pts: frame.map(q => [q[0] + dx, q[1] + dy]),
+      pc: { pid: 'whole_' + Date.now(), file: OP.file, kind: 'sheet', pts0: frame }, color: 'red', dash: 'dash', wm: 1, extend: 'none', ruler: false, noLabel: false, rot: 0 };
+    MARKS.set(l.id, NotchVec.packMarks(vec.polys.map(P => ({ pts: P.pts, w: P.w, dash: P.dash, fill: P.fill }))));
+    S.lines.push(l); S.selId = l.id; renderLineList(); drawLines(); record(); saveMarks(); openFold('lines');
+    toast('All of ' + base + ' is over your pattern · drag to move it, the round handle turns it, long-press for flip and colour');
+  }
+
   { const _rp = renderPieces; renderPieces = function () {
       const r = _rp.apply(this, arguments);
       try { S.lines.forEach(l => { if (l.pc && !l.pc.dup && l.pc.file === S.fileName) { const p = S.pieces.find(q => q.id === l.pc.pid); if (p && !!p.cut !== !!l.cut) { l.cut = !!p.cut; drawLines(); } } }); syncSepUI(); } catch {}
@@ -8356,7 +8493,7 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
   if (PHONE) phoneStart();
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { drawGrid(); drawTest(); drawLines(); });
   // automated checks only (never on in normal use)
-  if (/[?&]notchtest\b/.test(location.search)) window.__N = { S, PW, VG, findFromLoops, pwGraph, pwShapeTap, pwUnlineTap, pwAddLine, pwSave, AI, aiFind, cellsUnder, openPieces, FILL, fillTapWith, selApply, MARKS, separatePieces, setSheet, flipSel, pcAt, putBack, fillGrid, fillTap, fillMakePiece, selClear, toMm, toScreen, drawLines, renderPieces, go, bringPiece, importPc, saveNow, togglePtEdit, pcPointGesture, lineEditGesture, rotateSel, P, DB };
+  if (/[?&]notchtest\b/.test(location.search)) window.__N = { S, PW, VG, OP, opTap, bringWhole, findFromLoops, pwGraph, pwShapeTap, pwUnlineTap, pwAddLine, pwSave, AI, aiFind, cellsUnder, openPieces, FILL, fillTapWith, selApply, MARKS, separatePieces, setSheet, flipSel, pcAt, putBack, fillGrid, fillTap, fillMakePiece, selClear, toMm, toScreen, drawLines, renderPieces, go, bringPiece, importPc, saveNow, togglePtEdit, pcPointGesture, lineEditGesture, rotateSel, P, DB };
 })();
 </script>
 
