@@ -4528,7 +4528,7 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
     composePattern(true); renderPieces();
   }
 
-  async function loadPdf(file, rec, wantSlot) {
+  async function loadPdf(file, rec, wantSlot, switching) {
     if (!window.pdfjsLib) { toast('The PDF reader did not load. Check your connection and reload.'); return false; }
     await saveNow();                          // keep the pattern we're leaving exactly as it was
     SAVE.ready = false; SAVE.id = null;
@@ -4569,7 +4569,7 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
       if (!rec || !rec.hasFile) DB.put('files', id, buf).then(() => { SAVE.meta.hasFile = true; saveNow(); }).catch(() => saveFailed());
       else { SAVE.meta.hasFile = true; }
       saveNow();
-      if (resume) {
+      if (resume && !switching) {
         const n = S.pieces.length, cut = S.pieces.filter(q => q.cut).length;
         toast('Picked up where you left off' + (n ? ' · ' + n + ' piece' + (n > 1 ? 's' : '') + (cut ? ', ' + cut + ' cut' : '') : '') + (S.asm ? ' · pages put together' : ''));
       } else if (PHONE) { /* the phone asks nothing: straight to the pattern */ }
@@ -4647,12 +4647,12 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') saveNow(); });
   addEventListener('pagehide', () => { saveNow(); });
 
-  async function reopenPattern(id, quiet) {
+  async function reopenPattern(id, quiet, switching) {
     try {
       const [rec, buf] = await Promise.all([DB.get('work', id), DB.get('files', id)]);
       if (!rec || !buf || rec.shelf) { if (pget('pp_last') === id) pset('pp_last', ''); if (!quiet) toast('That PDF is no longer saved on this device · open it again from your files'); return false; }
       const file = new File([buf], rec.name, { type: 'application/pdf' });
-      return await loadPdf(file, rec);
+      return await loadPdf(file, rec, undefined, switching);
     } catch (err) { if (!quiet) toast('Could not open the saved pattern'); return false; }
   }
   function whenText(t) {
@@ -4681,22 +4681,25 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
      The pattern that's open is drawn as always. The other one in the project (lining, or main) can be shown on top:
      its separated pieces if it has any, otherwise its whole sheet, both where they were when it was last open, in
      red and see-through. An eye on each row in Project shows or hides it. */
-  async function companionOn(rec) {
+  async function companionOn(rec, fresh) {
+    if (fresh) S.lines = S.lines.filter(l => l.companion !== rec.id);
     const have = S.lines.filter(l => l.companion === rec.id);
     if (have.length) { have.forEach(l => { delete l.hidden; }); drawLines(); renderLineList(); renderPatternList(); record(); return; }
     let st = null; try { st = JSON.parse(rec.state); } catch {}
     let mk = null; try { mk = await DB.get('work', rec.id + '#m'); } catch {}
     const marks = (mk && mk.marks) || {}, label = rec.slot === 'lining' ? 'Lining' : 'Main';
-    const pcs = st && Array.isArray(st.lines) ? st.lines.filter(l => l.pc && !l.companion) : [];
+    const pcs = st && Array.isArray(st.lines) ? st.lines.filter(l => l.pc && !l.companion && l.pc.file === rec.name) : [];
+    const sheetShown = !(st && (st.sheet || st.mainHidden));
     if (pcs.length) {
       pcs.forEach(src => {
-        const c = JSON.parse(JSON.stringify(src)); delete c._fit; delete c.local; delete c.screen; delete c.pinned; delete c.group;
-        c.id = newPcId(); c.companion = rec.id; c.name = label + ' · ' + src.name; c.noLabel = false;
+        const c = JSON.parse(JSON.stringify(src)); delete c._fit; delete c.local; delete c.screen; delete c.pinned;
+        c.id = newPcId(); c.companion = rec.id; c.name = label + ' · ' + src.name;
         if (marks[src.id]) MARKS.set(c.id, marks[src.id]);
         S.lines.push(c);
       });
-    } else {
-      // no separated pieces: the piece it was showing on its own, or else its whole sheet, placed as it was
+    }
+    if (!pcs.length || sheetShown) {
+      // the piece it was showing on its own, or else its whole sheet, placed as it was
       const buf = await DB.get('files', rec.id).catch(() => null);
       if (!buf) { toast('That PDF is no longer saved on this device'); return; }
       try {
@@ -4735,6 +4738,52 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
   // the open pattern itself: the sheet and its own pieces
   function setMainHidden(v) { S.mainHidden = !!v; if (v && selLine() && selLine().pc && !selLine().companion) S.selId = null; drawPieces(); drawLines(); updateMirror(); renderPatternList(); record(); }
 
+  /* Switching between main fabric and lining keeps the mat exactly as it is (v141): every piece stays where it is
+     and as it is (shown or hidden, colour, group), the view stays the same. Only which pattern is "open" changes,
+     i.e. which one Mark pieces works on. */
+  async function switchPattern(id) {
+    const fromId = SAVE.id, fromName = S.fileName, fromRec = [PROJ.main, PROJ.lining].find(r => r && r.id === fromId);
+    if (!fromRec) return reopenPattern(id);
+    await saveNow();
+    const carried = JSON.parse(JSON.stringify(S.lines)), marks = new Map(); S.lines.forEach(l => { if (MARKS.has(l.id)) marks.set(l.id, MARKS.get(l.id)); });
+    const view = { ...S.view }, fromHidden = !!S.mainHidden;
+    const ok = await reopenPattern(id, false, true); if (!ok) return false;
+    const toId = SAVE.id, cB = carried.filter(l => l.companion === toId);
+    HIST.restoring = true;
+    try {
+      let own = S.lines.filter(l => l.pc && !l.companion && l.pc.file === S.fileName);
+      // its sheet (or the one piece of it) was moved while it was the other one: the sheet goes there
+      const cs = cB.find(x => x.pc && x.pc.pts0 && (x.pc.kind === 'sheet' || !own.some(o => o.pc.pid === x.pc.pid)));
+      if (cs) {
+        const M = NotchVec.fitRigid(cs.pc.pts0, cs.pts);
+        if (M) {
+          const flip = M[0] * M[3] - M[1] * M[2] < 0, W = pdfC.width / K, H = pdfC.height / K, c = NotchVec.apply(M, W / 2, H / 2);
+          const co = flip ? -M[0] : M[0], si = flip ? -M[1] : M[1];
+          S.pc = { x: c[0], y: c[1] }; S.rot = Math.round(norm180(deg(Math.atan2(si, co))) * 100) / 100; S.flip = flip; placePattern();
+        }
+      }
+      // its own pieces: where they were on the mat a moment ago
+      own.forEach(o => { const c = cB.find(x => x.pc && x.pc.pid === o.pc.pid && x.pc.kind !== 'sheet'); if (!c) return;
+        o.pts = c.pts; o.rot = c.rot; ['color', 'hex', 'dash', 'wm', 'group', 'noLabel'].forEach(k => { if (c[k] !== undefined) o[k] = c[k]; else delete o[k]; });
+        if (c.hidden) o.hidden = true; else delete o.hidden; o._fit = null; if (o.pinned) pin(o, true); });
+      S.mainHidden = cB.length > 0 && cB.every(x => x.hidden);
+      // everything else stays as it was: drawn lines, pieces from other PDFs
+      const rest = carried.filter(l => !l.companion && !(l.pc && l.pc.file === fromName));
+      rest.forEach(l => { delete l._fit; if (marks.has(l.id)) MARKS.set(l.id, marks.get(l.id)); if (l.pinned && !l.screen) pin(l, true); });
+      S.lines = own.concat(rest);
+      if (S.selId && !S.lines.some(l => l.id === S.selId)) S.selId = null;
+    } catch (err) { console.error(err); }
+    HIST.restoring = false;
+    // the pattern we came from, on the mat as it was
+    const fresh = await DB.get('work', fromId).catch(() => null);
+    await companionOn(fresh || fromRec, true);
+    if (fromHidden) companionOff(fromRec);
+    setView(view.s, view.tx, view.ty);
+    renderLineList(); renderPieces(); drawPieces(); drawLines(); updateMirror(); record(); saveMarks(); renderPatternList();
+    toast('Now working on the ' + (PROJ.lining && toId === PROJ.lining.id ? 'lining' : 'main fabric') + ' · the mat stays as it was');
+    return true;
+  }
+
   async function renderPatternList() {
     const box = $('#patList');
     if (await loadProject() === null) { box.textContent = ''; $('#patNote').textContent = 'Saving isn\'t available in this browser (private browsing, or storage turned off).'; $('#patNote').hidden = false; $('#addLining').hidden = true; $('#patTools').hidden = true; return; }
@@ -4765,7 +4814,7 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
         more.addEventListener('click', e => { e.stopPropagation(); const rc = more.getBoundingClientRect(); toggleMenu('lining', () => liningMenu(r, rc.right, rc.bottom + 4)); });
         el.append(more);
       } else el.append(document.createElement('span'));
-      const openIt = () => { if (cur) return; m.textContent = 'opening…'; reopenPattern(r.id).then(() => renderPatternList()); };
+      const openIt = () => { if (cur) return; m.textContent = 'opening…'; switchPattern(r.id).then(() => renderPatternList()); };
       el.addEventListener('click', openIt);
       el.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openIt(); } });
       box.append(el);
@@ -5651,7 +5700,8 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
     }
     if (S.tool === 'move') {
       stage.classList.add('grabbing');
-      const o0 = { ...S.pc }, sx = e.clientX, sy = e.clientY, free0 = snapObjs(freeObjs());
+      const onSheet = !S.mainHidden && !S.sheetOff && !!pdfC.width && (pieceAt(p0) >= 0 || (!S.pieces.length && (() => { const c = worldToCanvas(p0); return c[0] >= 0 && c[1] >= 0 && c[0] <= pdfC.width / K && c[1] <= pdfC.height / K; })()));
+      const o0 = { ...S.pc }, sx = e.clientX, sy = e.clientY, free0 = onSheet ? [] : snapObjs(freeObjs());
       let panMoved = false;
       if (e.pointerType !== 'mouse') {
         pressTimer = setTimeout(() => {
@@ -8631,7 +8681,7 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
   if (PHONE) phoneStart();
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { drawGrid(); drawTest(); drawLines(); });
   // automated checks only (never on in normal use)
-  if (/[?&]notchtest\b/.test(location.search)) window.__N = { S, hitLine, movePattern, syncLock, freeObjs, PROJ, startPick, togglePick, makeGroup, renderLineList, companionOn, companionOff, setMainHidden, renderPatternList, turn, quarterTurn, PW, VG, OP, opTap, bringWhole, findFromLoops, pwGraph, pwShapeTap, pwUnlineTap, pwAddLine, pwSave, AI, aiFind, cellsUnder, openPieces, FILL, fillTapWith, selApply, MARKS, separatePieces, setSheet, flipSel, pcAt, putBack, fillGrid, fillTap, fillMakePiece, selClear, toMm, toScreen, drawLines, renderPieces, go, bringPiece, importPc, saveNow, togglePtEdit, pcPointGesture, lineEditGesture, rotateSel, P, DB };
+  if (/[?&]notchtest\b/.test(location.search)) window.__N = { S, pieceAt, toWorld, canvasToLocal, switchPattern, hitLine, movePattern, syncLock, freeObjs, PROJ, startPick, togglePick, makeGroup, renderLineList, companionOn, companionOff, setMainHidden, renderPatternList, turn, quarterTurn, PW, VG, OP, opTap, bringWhole, findFromLoops, pwGraph, pwShapeTap, pwUnlineTap, pwAddLine, pwSave, AI, aiFind, cellsUnder, openPieces, FILL, fillTapWith, selApply, MARKS, separatePieces, setSheet, flipSel, pcAt, putBack, fillGrid, fillTap, fillMakePiece, selClear, toMm, toScreen, drawLines, renderPieces, go, bringPiece, importPc, saveNow, togglePtEdit, pcPointGesture, lineEditGesture, rotateSel, P, DB };
 })();
 </script>
 
