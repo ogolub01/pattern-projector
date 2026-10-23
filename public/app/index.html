@@ -364,8 +364,11 @@ kbd { font-family: var(--mono); border: 1px solid var(--line); padding: 1px 5px;
 .ext { display: flex; gap: 2px; }
 .ext button { width: 30px; height: 26px; border: 1px solid var(--line); background: transparent; color: var(--mute); cursor: pointer; padding: 0; display: flex; align-items: center; justify-content: center; }
 .ext button[aria-pressed="true"] { color: var(--brass); border-color: var(--brass); }
-.srow { display: grid; grid-template-columns: minmax(0,1fr) 34px; align-items: center; gap: 6px; border: 1px solid var(--line); padding: 4px 2px 4px 10px; cursor: pointer; background: transparent; text-align: left; }
+.srow { display: grid; grid-template-columns: 34px minmax(0,1fr) 34px; align-items: center; gap: 6px; border: 1px solid var(--line); padding: 4px 2px 4px 10px; cursor: pointer; background: transparent; text-align: left; }
 .srow:hover { border-color: var(--mute); }
+.srow .eye { width: 32px; height: 32px; border: none; background: transparent; color: var(--faint); cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0; }
+.srow .eye.on { color: var(--brass); }
+.srow .eye:hover { color: var(--ink); }
 .srow.cur { border-color: var(--brass); cursor: default; }
 .srow .sn { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .srow b { font-family: var(--serif); font-style: italic; font-weight: 400; font-size: 16px; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -2397,6 +2400,7 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
     const all = S.draft ? [...S.lines, S.draft] : S.lines;
     const big = (S.w + S.h) * 6;
     all.forEach(l => {
+      if (l.hidden || (S.mainHidden && l.pc && !l.companion && l.pc.file === S.fileName)) return;
       const isSel = selSet.has(l.id), c = colorOf(l), w = lw() * (isSel ? 1.9 : 1.3) * (l.wm || 1);
       g.strokeStyle = c; g.fillStyle = c;
       if (l.pc) { drawPc(g, l, c, w, isSel, M); return; }
@@ -3266,7 +3270,7 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
     g.setTransform(1, 0, 0, 1, 0, 0); g.globalCompositeOperation = 'source-over'; g.globalAlpha = 1;
     g.clearRect(0, 0, pw, ph);
     if (S.step !== 'project') { pdfC.style.visibility = ''; return; }
-    if (S.sheetOff) { pdfC.style.visibility = 'hidden'; return; }
+    if (S.sheetOff || S.mainHidden) { pdfC.style.visibility = 'hidden'; return; }
     const M = P(), bg = rgb(M.bg), line = rgb(M.line);
     g.save(); g.scale(K, K); g.lineJoin = 'round';
     const cur = curPiece(), W = pieceC.width / K, Hh = pieceC.height / K;
@@ -4524,7 +4528,7 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
       buildLayers();
       $('#pageRow').hidden = pdf.numPages < 2; S.asm = null; ASM.last = null;
       S.rot = 0; S.flip = false; S.pivotWhole = null; S.flipWhole = null; S.matSel = null; S.pieces = []; S.curPiece = -1; S.oneAt = false; $('#oneAtChk').checked = false;
-      S.lines = S.lines.filter(l => !l.pinned); S.foldId = null; S.sheetOff = false; S.vEdits = null; S.ptEdit = null; VEC.key = null; VEC.data = null;
+      S.lines = S.lines.filter(l => !l.pinned); S.foldId = null; S.sheetOff = false; S.mainHidden = false; S.vEdits = null; S.ptEdit = null; VEC.key = null; VEC.data = null;
       await loadMarks(id);
       HIST.undo = []; HIST.redo = []; HIST.last = null;
       if (resume) {
@@ -4655,6 +4659,49 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
     PROJ.main = main; PROJ.lining = lining;
     return list;
   }
+  /* ---------- main fabric and lining on the mat together (v140) ----------
+     The pattern that's open is drawn as always. The other one in the project (lining, or main) can be shown on top:
+     its separated pieces if it has any, otherwise its whole sheet, both where they were when it was last open, in
+     red and see-through. An eye on each row in Project shows or hides it. */
+  async function companionOn(rec) {
+    const have = S.lines.filter(l => l.companion === rec.id);
+    if (have.length) { have.forEach(l => { delete l.hidden; }); drawLines(); renderLineList(); renderPatternList(); record(); return; }
+    let st = null; try { st = JSON.parse(rec.state); } catch {}
+    let mk = null; try { mk = await DB.get('work', rec.id + '#m'); } catch {}
+    const marks = (mk && mk.marks) || {}, label = rec.slot === 'lining' ? 'Lining' : 'Main';
+    const pcs = st && Array.isArray(st.lines) ? st.lines.filter(l => l.pc && !l.companion) : [];
+    if (pcs.length) {
+      pcs.forEach(src => {
+        const c = JSON.parse(JSON.stringify(src)); delete c._fit; delete c.local; delete c.screen; delete c.pinned; delete c.group;
+        c.id = newPcId(); c.companion = rec.id; c.color = 'red'; c.name = label + ' · ' + src.name; c.noLabel = false;
+        if (marks[src.id]) MARKS.set(c.id, marks[src.id]);
+        S.lines.push(c);
+      });
+    } else {
+      // no separated pieces: its whole sheet, placed as it was
+      const buf = await DB.get('files', rec.id).catch(() => null);
+      if (!buf) { toast('That PDF is no longer saved on this device'); return; }
+      try {
+        const doc = await pdfjsLib.getDocument({ data: new Uint8Array(buf.slice ? buf.slice(0) : buf) }).promise, page = await doc.getPage(Math.max(1, (rec.pageNum || 1))), vp = page.getViewport({ scale: PT_TO_MM });
+        const vec = await NotchVec.extractVectors(page, pdfjsLib.OPS, null, vp.transform);
+        const W = vp.width, H = vp.height, rot = st ? st.rot || 0 : 0, flip = st ? !!st.flip : false, pc = st && st.pos ? st.pos : [S.w / 2, S.h / 2];
+        const a = rad(rot), co = Math.cos(a), si = Math.sin(a);
+        const place = q => { let x = q[0] - W / 2, y = q[1] - H / 2; if (flip) x = -x; return [pc[0] + x * co - y * si, pc[1] + x * si + y * co]; };
+        const frame = [[0, 0], [W, 0], [W, H], [0, H], [0, 0]];
+        const l = { id: newPcId(), type: 'free', name: label + ' · ' + rec.name.replace(/\.pdf$/i, ''), pts: frame.map(place), companion: rec.id,
+          pc: { pid: 'whole_' + rec.id, file: rec.name, kind: 'sheet', pts0: frame }, color: 'red', dash: 'dash', wm: 1, extend: 'none', ruler: false, noLabel: false, rot };
+        MARKS.set(l.id, NotchVec.packMarks(vec.polys.map(P => ({ pts: P.pts, w: P.w, dash: P.dash, fill: P.fill }))));
+        S.lines.push(l);
+      } catch (err) { console.error(err); toast('Could not draw that PDF'); return; }
+    }
+    renderLineList(); drawLines(); saveMarks(); record(); renderPatternList();
+    toast(label + ' showing on the mat, in red · drag a piece to move it, the round handle turns it');
+  }
+  function companionOff(rec) { S.lines.forEach(l => { if (l.companion === rec.id) l.hidden = true; }); if (selLine() && selLine().hidden) S.selId = null; drawLines(); renderLineList(); renderPatternList(); record(); }
+  const companionShown = rec => S.lines.some(l => l.companion === rec.id && !l.hidden);
+  // the open pattern itself: the sheet and its own pieces
+  function setMainHidden(v) { S.mainHidden = !!v; if (v && selLine() && selLine().pc && !selLine().companion) S.selId = null; drawPieces(); drawLines(); updateMirror(); renderPatternList(); record(); }
+
   async function renderPatternList() {
     const box = $('#patList');
     if (await loadProject() === null) { box.textContent = ''; $('#patNote').textContent = 'Saving isn\'t available in this browser (private browsing, or storage turned off).'; $('#patNote').hidden = false; $('#addLining').hidden = true; $('#patTools').hidden = true; return; }
@@ -4671,7 +4718,15 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
       if (r.pieces) bits.push(r.cut ? r.cut + ' / ' + r.pieces + ' cut' : r.pieces + ' piece' + (r.pieces > 1 ? 's' : ''));
       bits.push(cur ? 'open now' : whenText(r.opened));
       m.textContent = bits.join(' · ');
-      sn.append(sl, b, m); el.append(sn);
+      sn.append(sl, b, m);
+      const eye = document.createElement('button'); eye.type = 'button'; eye.className = 'eye';
+      const shown = cur ? !S.mainHidden : companionShown(r);
+      eye.setAttribute('aria-pressed', String(shown)); eye.classList.toggle('on', shown);
+      eye.title = cur ? (shown ? 'Hide this pattern on the mat' : 'Show this pattern on the mat') : (shown ? 'Hide it on the mat' : 'Show it on the mat as well, in red');
+      eye.setAttribute('aria-label', eye.title);
+      eye.innerHTML = shown ? '<svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>' : '<svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12z"/><circle cx="12" cy="12" r="3"/><path d="M4 20L20 4"/></svg>';
+      eye.addEventListener('click', e => { e.stopPropagation(); if (cur) setMainHidden(!S.mainHidden); else if (shown) companionOff(r); else companionOn(r); });
+      el.append(eye, sn);
       if (label === 'Lining') {
         const more = document.createElement('button'); more.type = 'button'; more.className = 'more'; more.textContent = '⋯'; more.setAttribute('aria-label', 'Lining options');
         more.addEventListener('click', e => { e.stopPropagation(); const rc = more.getBoundingClientRect(); toggleMenu('lining', () => liningMenu(r, rc.right, rc.bottom + 4)); });
@@ -5314,7 +5369,7 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
     const l = S.lines.find(x => x.id === S.foldId && x.type === 'straight');
     const fk = l && S.step === 'project' ? l.id : null;
     if (fk !== lastFold) { lastFold = fk; drawPieces(); }
-    const on = !!l && S.step === 'project' && !S.sheetOff;
+    const on = !!l && S.step === 'project' && !S.sheetOff && !S.mainHidden;
     mirClip.hidden = !on;
     patClip.style.clipPath = ''; mirClip.style.clipPath = '';
     const fb = $('#foldBtn'); if (fb) { const pr = !!l && S.selId === l.id; fb.setAttribute('aria-pressed', String(pr)); fb.classList.toggle('on', pr); }
@@ -5890,6 +5945,7 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
     // body: in Move, any line; in Line, only the selected one (so you can still start new lines nearby)
     let hit = null, hd = bodyTol;
     (S.tool === 'move' ? S.lines : [selLine()].filter(Boolean)).forEach(l => {
+      if (offMat(l)) return;
       const pts = isPoly(l) ? l.pts : [l.a, l.b];
       for (let i = 1; i < pts.length; i++) { const d = segDist(p0, pts[i - 1], pts[i]); if (d < hd) { hd = d; hit = l; } }
     });
@@ -5945,6 +6001,8 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
       ang0: Math.atan2(b.y - a.y, b.x - a.x),
       mm0: [(A[0] + B[0]) / 2, (A[1] + B[1]) / 2], angMm0: Math.atan2(B[1] - A[1], B[0] - A[0]),
       pc: { x: S.pc.x, y: S.pc.y }, rot: S.rot };
+    const sl = S.step === 'project' ? selLine() : null;
+    if (sl && sl.pc && !sl.hidden) pinch.objs = selMembers().map(l => ({ l, cp: l.type === 'curve' ? curveFlat(l).map(q => q.slice()) : null, a: l.a && l.a.slice(), b: l.b && l.b.slice(), pts: l.pts && l.pts.map(q => q.slice()), rot0: l.rot || 0 }));
   }
   function updatePinch() {
     const [cx, cy, d] = mid2();
@@ -5981,6 +6039,11 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
       pinch.k = nk; t = nk * q;
     }
     const p = pinch.mm0, c = Math.cos(t), sn = Math.sin(t), dx = pinch.pc.x - p[0], dy = pinch.pc.y - p[1];
+    if (pinch.objs) {
+      const f = q => { const x = q[0] - p[0], y = q[1] - p[1]; return [p[0] + x * c - y * sn + (mid[0] - p[0]), p[1] + x * sn + y * c + (mid[1] - p[1])]; };
+      pinch.objs.forEach(o => { if (o.cp) curveSet(o.l, o.cp.map(f)); else if (o.pts) o.l.pts = o.pts.map(f); else { o.l.a = f(o.a); o.l.b = f(o.b); } o.l.rot = Math.round(norm180(o.rot0 + t * 180 / Math.PI) * 100) / 100; o.l._fit = null; lineCommit(o.l); });
+      drawLines(); syncRotUI(); record(); return;
+    }
     S.pc = { x: p[0] + dx * c - dy * sn + (mid[0] - p[0]), y: p[1] + dx * sn + dy * c + (mid[1] - p[1]) };
     S.rot = Math.round(norm180(pinch.rot + t * 180 / Math.PI) * 100) / 100;
     placePattern();
@@ -6055,6 +6118,7 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
   function hitLine(p) {
     let best = null, bd = 10;
     S.lines.forEach(l => {
+      if (offMat(l)) return;
       const pts = isPoly(l) ? l.pts : [l.a, l.b];
       for (let i = 1; i < pts.length; i++) { const d = segDist(p, pts[i - 1], pts[i]); if (d < bd) { bd = d; best = l; } }
     });
@@ -6264,7 +6328,8 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
   }
   function pcInside(l, p) { return NotchVec.inPoly(l.pts, p[0], p[1]); }
   // topmost separated piece under a point
-  function pcAt(p) { for (let i = S.lines.length - 1; i >= 0; i--) { const l = S.lines[i]; if (l.pc && pcInside(l, p)) return l; } return null; }
+  const offMat = l => l.hidden || (S.mainHidden && l.pc && !l.companion && l.pc.file === S.fileName);
+  function pcAt(p) { for (let i = S.lines.length - 1; i >= 0; i--) { const l = S.lines[i]; if (l.pc && !offMat(l) && pcInside(l, p)) return l; } return null; }
   // drag, add or remove a point of the selected piece's outline (Edit points)
   function pcPointGesture(e, p0) {
     const l = selLine(); if (!l || !l.pc || S.ptEdit !== l.id || S.tool !== 'move') return null;
@@ -6796,7 +6861,7 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
     return JSON.stringify({
       pos: [Math.round(S.pc.x * 10) / 10, Math.round(S.pc.y * 10) / 10], rot: S.rot, flip: S.flip,
       lines: S.lines, selId: S.selId, pieces: S.pieces.map(p => ({ ...p, nameCands: undefined })), curPiece: S.curPiece, oneAt: S.oneAt, dimCut: S.dimCut,
-      sheet: !!S.sheetOff, vedits: S.vEdits || null, layers, fold: S.foldId, look: [S.bg, S.patCol, S.boost, S.patHex, S.gridHex], grid: [S.grid, S.gridSize, S.gridAlpha, S.gridCol], ruler: [S.ruler, S.lunit]
+      sheet: !!S.sheetOff, mainHidden: !!S.mainHidden, vedits: S.vEdits || null, layers, fold: S.foldId, look: [S.bg, S.patCol, S.boost, S.patHex, S.gridHex], grid: [S.grid, S.gridSize, S.gridAlpha, S.gridCol], ruler: [S.ruler, S.lunit]
     });
   }
   function record() {
@@ -6820,7 +6885,7 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
     const d = JSON.parse(json);
     HIST.restoring = true;
     S.pc = { x: d.pos[0], y: d.pos[1] }; S.rot = d.rot; S.flip = d.flip;
-    S.lines = d.lines; S.selId = d.selId; S.foldId = d.fold || null; S.sheetOff = !!d.sheet; S.vEdits = d.vedits || null; S.pieces = d.pieces; S.pieces.forEach(p => { if (/^Piece \d+$/i.test((p.name || '').trim())) p.name = ''; }); S.curPiece = d.curPiece; S.oneAt = d.oneAt; S.dimCut = d.dimCut;
+    S.lines = d.lines; S.selId = d.selId; S.foldId = d.fold || null; S.sheetOff = !!d.sheet; S.mainHidden = !!d.mainHidden; S.vEdits = d.vedits || null; S.pieces = d.pieces; S.pieces.forEach(p => { if (/^Piece \d+$/i.test((p.name || '').trim())) p.name = ''; }); S.curPiece = d.curPiece; S.oneAt = d.oneAt; S.dimCut = d.dimCut;
     [S.ruler, S.lunit] = d.ruler; [S.grid, S.gridSize, S.gridAlpha, S.gridCol] = d.grid;
     $('#oneAtChk').checked = S.oneAt; $('#dimCutChk').checked = S.dimCut; $('#rulerChk').checked = S.ruler; syncRulerBtn(); $('#gridChk').checked = S.grid; syncGridBtn();
     $$('[data-lunit]').forEach(x => x.classList.toggle('on', x.dataset.lunit === S.lunit));
@@ -7078,7 +7143,7 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
     m.style.left = sp[0] + 'px'; m.style.top = sp[1] + 'px';
     m.classList.toggle('ghost', !info.custom);
   }
-  function turn(d) { rotateBy(d, pivotInfo().world); flashPivot(); }
+  function turn(d) { const sl = S.step === 'project' ? selLine() : null; if (sl && !sl.hidden) { rotateSel(d); return; } rotateBy(d, pivotInfo().world); flashPivot(); }
   // Flip line: whole mat = through the middle of the screen; one piece = through its centre. Drag it to move it;
   // a moved line is kept on the pattern (one per piece, one for the whole mat) and the next flip uses it.
   function flipInfo() {
@@ -7137,6 +7202,7 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
     bringLocalTo(toLocal(f.world), [S.w / 2, S.h / 2]); toast(`"${f.name}" centred on the mat`);
   }
   function quarterTurn() {
+    const sl = selLine(); if (sl && S.step === 'project') { rotateSel(90); toast(`Turned "${sl.name}" 90°`); return; }
     const f = focusTarget();
     turn(90);
     toast(f.name ? `Turned "${f.name}" 90°` : 'Turned 90°');
@@ -7909,7 +7975,7 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
   $('#rotRange').addEventListener('input', e => turnTo(+e.target.value));
   // Centre and Level 0° also put the rotation point back in the middle
   function pivotToMiddle() { const p = S.oneAt ? curPiece() : null; if (p) delete p.pivot; else S.pivotWhole = null; }
-  $('#zeroRot').addEventListener('click', () => { pivotToMiddle(); turn(-S.rot); });
+  $('#zeroRot').addEventListener('click', () => { const a = selAngle(); if (a != null) { rotateSel(-a); return; } pivotToMiddle(); turn(-S.rot); });
   $('#flipH').addEventListener('click', () => flipFocus(90, 'left to right'));
   $('#flipV').addEventListener('click', () => flipFocus(0, 'top to bottom'));
   $('#centerBtn').addEventListener('click', () => { pivotToMiddle(); centreFocus(); flashPivot(); });
@@ -8501,7 +8567,7 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
   if (PHONE) phoneStart();
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { drawGrid(); drawTest(); drawLines(); });
   // automated checks only (never on in normal use)
-  if (/[?&]notchtest\b/.test(location.search)) window.__N = { S, PW, VG, OP, opTap, bringWhole, findFromLoops, pwGraph, pwShapeTap, pwUnlineTap, pwAddLine, pwSave, AI, aiFind, cellsUnder, openPieces, FILL, fillTapWith, selApply, MARKS, separatePieces, setSheet, flipSel, pcAt, putBack, fillGrid, fillTap, fillMakePiece, selClear, toMm, toScreen, drawLines, renderPieces, go, bringPiece, importPc, saveNow, togglePtEdit, pcPointGesture, lineEditGesture, rotateSel, P, DB };
+  if (/[?&]notchtest\b/.test(location.search)) window.__N = { S, PROJ, companionOn, companionOff, setMainHidden, renderPatternList, turn, quarterTurn, PW, VG, OP, opTap, bringWhole, findFromLoops, pwGraph, pwShapeTap, pwUnlineTap, pwAddLine, pwSave, AI, aiFind, cellsUnder, openPieces, FILL, fillTapWith, selApply, MARKS, separatePieces, setSheet, flipSel, pcAt, putBack, fillGrid, fillTap, fillMakePiece, selClear, toMm, toScreen, drawLines, renderPieces, go, bringPiece, importPc, saveNow, togglePtEdit, pcPointGesture, lineEditGesture, rotateSel, P, DB };
 })();
 </script>
 
