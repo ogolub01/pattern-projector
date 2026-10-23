@@ -3292,7 +3292,7 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
     const M = P(), bg = rgb(M.bg), line = rgb(M.line);
     g.save(); g.scale(K, K); g.lineJoin = 'round';
     const cur = curPiece(), W = pieceC.width / K, Hh = pieceC.height / K;
-    const one = !!(S.oneAt && cur), fold = foldPoly(), solo = one || !!fold;
+    const one = !!(S.oneAt && cur), fold = foldPoly(), lifted = S.lines.filter(l => l.pc && !l.companion && l.pc.kind !== 'sheet' && l.pc.file === S.fileName && l.pc.pts0), solo = one || !!fold || lifted.length > 0;
     pdfC.style.visibility = solo ? 'hidden' : '';
     if (solo) {
       // draw the pattern into this layer, keeping only what should show; everything else stays empty.
@@ -3308,6 +3308,12 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
         if (one) {
           // the piece's cut-out is built once and reused, then everything outside it is cleared in one step
           g.save(); g.setTransform(1, 0, 0, 1, 0, 0); g.globalCompositeOperation = 'destination-in'; g.drawImage(pieceMask(cur, rx, ry, rw, rh), rx, ry); g.restore();
+        }
+        // pieces that are now objects of their own are lifted off the sheet (they're drawn where they are now)
+        if (lifted.length) {
+          g.save(); g.globalCompositeOperation = 'destination-out'; g.fillStyle = g.strokeStyle = '#000'; g.lineWidth = 1.6; g.lineJoin = 'round';
+          lifted.forEach(l => { g.beginPath(); l.pc.pts0.forEach((q, k) => k ? g.lineTo(q[0], q[1]) : g.moveTo(q[0], q[1])); g.closePath(); g.fill(); g.stroke(); });
+          g.restore();
         }
       }
     }
@@ -5698,6 +5704,20 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
       const edit = lineEditGesture(e, p0);
       if (edit) return edit;
     }
+    if (S.tool === 'move' && !S.locked && !S.mainHidden && !S.sheetOff && pdfC.width) {
+      const pi = pieceAt(p0), sp = pi >= 0 ? S.pieces[pi] : null;
+      if (sp && !sepOf(sp)) {
+        let snap = null, last = p0, done = false;
+        const go = () => { if (!snap) return; const dx = last[0] - p0[0], dy = last[1] - p0[1]; applyObjs(snap, q => [q[0] + dx, q[1] + dy]); drawLines(); };
+        separatePieces([sp], { keep: true }).then(m => { if (m && m[0]) { snap = snapObjs([m[0]]); go(); if (done) record(); syncLineBar(); } });
+        stage.classList.add('grabbing');
+        return {
+          move: ev => { last = toMm(ev.clientX, ev.clientY); go(); },
+          up: () => { done = true; stage.classList.remove('grabbing'); go(); record(); },
+          abort: () => { stage.classList.remove('grabbing'); last = p0; go(); }
+        };
+      }
+    }
     if (S.tool === 'move') {
       stage.classList.add('grabbing');
       const onSheet = !S.mainHidden && !S.sheetOff && !!pdfC.width && (pieceAt(p0) >= 0 || (!S.pieces.length && (() => { const c = worldToCanvas(p0); return c[0] >= 0 && c[1] >= 0 && c[0] <= pdfC.width / K && c[1] <= pdfC.height / K; })()));
@@ -6335,11 +6355,12 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
   }
   const sepOf = (p, file) => S.lines.find(l => l.pc && l.pc.pid === p.id && l.pc.file === (file || S.fileName));
   const newPcId = () => 'pc' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-  async function separatePieces(list) {
+  async function separatePieces(list, opt) {
+    opt = opt || {};
     if (!pdfC.width || !S.pieces.length) return;
     list = list.filter(p => !sepOf(p));
-    if (!list.length) { setSheet(false); return; }
-    toast('Separating ' + (list.length > 1 ? list.length + ' pieces' : '"' + pName(list[0]) + '"') + '…');
+    if (!list.length) { if (!opt.keep) setSheet(false); return; }
+    if (!opt.keep) toast('Separating ' + (list.length > 1 ? list.length + ' pieces' : '"' + pName(list[0]) + '"') + '…');
     await new Promise(r => setTimeout(r, 30));
     let vec = null;
     try { vec = await pageVectors(); } catch (err) { console.error(err); }
@@ -6357,6 +6378,7 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
       S.lines.push(l); MARKS.set(l.id, NotchVec.packMarks(r.marks || [])); made.push(l); shelve(l);
     }
     if (!made.length) { toast('Could not make outlines for those pieces'); return; }
+    if (opt.keep) { S.matSel = null; S.selId = made[0].id; renderLineList(); renderPieces(); drawPieces(); drawLines(); record(); saveMarks(); return made; }
     S.oneAt = false; $('#oneAtChk').checked = false; S.matSel = null; S.selId = null;
     setSheet(false, true);
     renderLineList(); renderPieces(); drawLines(); record(); saveMarks();
