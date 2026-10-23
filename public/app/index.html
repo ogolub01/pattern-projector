@@ -3705,9 +3705,10 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
     g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high'; g.drawImage(S.base, 0, 0, W, Hh);
     // finished pieces stay orange; the one you picked in the strip is brighter
     PW.cur = pwEditIdx();
-    S.pieces.forEach((p, i) => { if (PW.redoPiece && p === PW.redoPiece.p) return; if (p.vpts) { g.save(); g.strokeStyle = '#8A6A22'; g.lineWidth = 1.6 / v.s; g.beginPath(); p.vpts.forEach((q, k) => k ? g.lineTo(q[0], q[1]) : g.moveTo(q[0], q[1])); g.closePath(); g.stroke(); g.restore(); } if (p.shape) paintPiece(g, p, '#C9A24B', i === PW.cur ? 0.62 : 0.45); else { g.save(); g.globalAlpha = i === PW.cur ? 0.62 : 0.45; g.fillStyle = '#C9A24B'; piecePath(g, p); g.fill(); g.restore(); } });
+    S.pieces.forEach((p, i) => { if (PW.redoPiece && p === PW.redoPiece.p) return; if (p.vpts) { g.save(); g.beginPath(); p.vpts.forEach((q, k) => k ? g.lineTo(q[0], q[1]) : g.moveTo(q[0], q[1])); g.closePath(); g.fillStyle = '#C9A24B'; g.globalAlpha = i === PW.cur ? 0.32 : 0.2; g.fill(); g.globalAlpha = 1; g.strokeStyle = '#8A6A22'; g.lineJoin = 'round'; g.lineWidth = (i === PW.cur ? 2.6 : 1.6) / v.s; g.stroke(); g.restore(); return; } if (p.shape) paintPiece(g, p, '#C9A24B', i === PW.cur ? 0.62 : 0.45); else { g.save(); g.globalAlpha = i === PW.cur ? 0.62 : 0.45; g.fillStyle = '#C9A24B'; piecePath(g, p); g.fill(); g.restore(); } });
     // what you're selecting now
-    if (FILL.count) drawSelection(g, '#FF8A3D');
+    if (FILL.count && FILL.vpts) { g.save(); g.beginPath(); FILL.vpts.forEach((q, k) => k ? g.lineTo(q[0], q[1]) : g.moveTo(q[0], q[1])); g.closePath(); g.fillStyle = '#FF8A3D'; g.globalAlpha = 0.28; g.fill(); g.restore(); }
+    else if (FILL.count) drawSelection(g, '#FF8A3D');
     try { pwDrawLines(g); } catch (err) { console.error(err); }
     if (PW.draft && PW.draft.length > 1) { g.save(); g.strokeStyle = '#FF6B5E'; g.lineWidth = 2 / v.s; g.setLineDash([6 / v.s, 4 / v.s]); g.beginPath(); PW.draft.forEach((q, i) => i ? g.lineTo(q[0], q[1]) : g.moveTo(q[0], q[1])); g.stroke(); g.restore(); }
     // the brush's size, round the pointer
@@ -3737,7 +3738,8 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
     // keep only what's inside the piece
     g.globalCompositeOperation = 'destination-in';
     if (piece) {
-      if (piece.shape) { const sh = piece.shape; g.imageSmoothingEnabled = false; g.drawImage(shapeBits(piece).cv, sh.x, sh.y, sh.w * sh.cell, sh.h * sh.cell); }
+      if (piece.vpts) { g.fillStyle = '#000'; g.beginPath(); piece.vpts.forEach((q, k) => k ? g.lineTo(q[0], q[1]) : g.moveTo(q[0], q[1])); g.closePath(); g.fill(); }
+      else if (piece.shape) { const sh = piece.shape; g.imageSmoothingEnabled = false; g.drawImage(shapeBits(piece).cv, sh.x, sh.y, sh.w * sh.cell, sh.h * sh.cell); }
       else { g.fillStyle = '#000'; piecePath(g, piece); g.fill(); }
     } else {
       const c = selCanvas('#FF8A3D'); if (c) { g.imageSmoothingEnabled = false; g.drawImage(c.cv, c.x0 - 0.5, c.y0 - 0.5, c.w + 1, c.h + 1); }
@@ -4066,6 +4068,7 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
     fillGrid(); selClear(); FILL.hist = [];
     $('#pwFile').textContent = S.fileName || 'Sample pattern';
     pwEl.hidden = false; pwSetTool('fill'); pwSetMode('add'); PW.vsel = new Set(); FILL.vsel = null; FILL.vpts = null;
+    pageVectors().then(v => { if (v && PW.open && PW.tool === 'fill' && !FILL.count) pwSetTool('shape'); }).catch(() => {});
     pwSize(); pwFit(); pwTiles();
   }
   function closePieces(keep) {
@@ -4238,7 +4241,9 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
   }
   async function findFromLoops() {
     const vec = await pageVectors().catch(() => null); if (!vec) return false;
-    const cand = NotchVec.loopPieces(vec, vec.sheet); if (!cand.length) return false;
+    let cand = NotchVec.loopPieces(vec, vec.sheet);
+    if (!cand.length) { const G = await pwGraph(); if (G) cand = NotchVec.autoPieces(G, vec.sheet); }
+    if (!cand.length) return false;
     pwAct(() => { selClear(); PW.redoPiece = null; S.pieces = []; S.curPiece = -1; cand.forEach(c => pieceFromLoop(c.pts)); FILL.changed = true; });
     S.oneAt = PW.prevOneAt; PW.cur = -1; pwTiles(); pwDraw();
     toast(`Found ${cand.length} piece${cand.length > 1 ? 's' : ''} on the designer's lines · tap a tile's ⋯ to delete anything that isn't a piece, and type the names`);
