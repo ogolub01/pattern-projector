@@ -827,8 +827,8 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
           <button class="btn" id="editPiecesBtn" title="Mark each pattern piece once, on the whole sheet">Mark pieces</button>
           <button class="btn slim" id="asmOpen2" hidden title="Back to putting the pages together, just as you left it">Edit page layout</button>
           <button class="btn slim" id="addPieceBtn" hidden></button><button class="btn slim" id="findPieces" hidden></button>
-          <button class="btn slim" id="importPieces" title="Pieces found by the Notch Piece Finder on claude.ai, saved as a .json file">Import pieces…</button>
-          <input type="file" id="piecesIn" accept=".json,application/json" hidden>
+          <button class="btn slim" id="importPieces" title="Open a pattern PDF, tap the pieces you want and bring them in">Import pieces from a PDF…</button>
+          <input type="file" id="piecesIn" accept="application/pdf,.pdf,.json,application/json" hidden>
         </div>
         <div class="group" id="sepBox" hidden>
           <button class="btn" id="sepBtn" title="Each marked piece becomes its own object with an exact outline, so you can move, turn and flip it on its own">Separate pieces</button>
@@ -6412,9 +6412,12 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
   }
 
   /* pieces found by the Notch Piece Finder (an artifact on claude.ai, where Claude can look at the sheet), saved as a file */
-  $('#importPieces').addEventListener('click', () => { if (!S.base) { toast('Open the pattern PDF first, then import its pieces'); return; } const i = $('#piecesIn'); i.value = ''; i.click(); });
+  $('#importPieces').addEventListener('click', () => { const i = $('#piecesIn'); i.value = ''; i.click(); });
   $('#piecesIn').addEventListener('change', async e => {
     const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+    // a PDF: open it and pick the pieces to bring in
+    if (/\.pdf$/i.test(f.name) || f.type === 'application/pdf') { OP.want = 'pieces'; openOtherFile(f); return; }
+    if (!S.base) { toast('Open your pattern first, then import its pieces'); return; }
     let d = null; try { d = JSON.parse(await f.text()); } catch {}
     if (!d || d.app !== 'notch-pieces' || !Array.isArray(d.pieces)) { toast('That file isn\'t a pieces file from the Notch Piece Finder'); return; }
     const W = S.base.width / K, H = S.base.height / K, same = d.sheet && Math.abs(d.sheet[0] - W) < 2 && Math.abs(d.sheet[1] - H) < 2;
@@ -6451,8 +6454,8 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
       { label: 'Pieces saved from other patterns…', keepOpen: true, fn: () => bringPiece(x, y) }
     ], x, y, true, 'bring');
   }
-  $('#otherPdfIn').addEventListener('change', async e => {
-    const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+  $('#otherPdfIn').addEventListener('change', e => { const f = e.target.files[0]; e.target.value = ''; if (f) openOtherFile(f); });
+  async function openOtherFile(f) {
     if (!window.pdfjsLib) { toast('The PDF reader did not load'); return; }
     try {
       toast('Opening ' + f.name + '…');
@@ -6472,7 +6475,7 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
       OP.cand = NotchVec.loopPieces(vec, vec.sheet).map(c => c.pts);
       openOther();
     } catch (err) { console.error(err); toast('That file could not be opened as a PDF'); }
-  });
+  }
   const opEl = $('#opick'), opCv = $('#opCanvas'), opStage = $('#opStage');
   function openOther() {
     opEl.hidden = false; $('#opFile').textContent = OP.file + (OP.pages > 1 ? ' · page 1 of ' + OP.pages : '');
