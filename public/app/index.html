@@ -802,7 +802,7 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
           </div>
         </div>
         <button class="btn slim" id="bringBtn" title="Lay pieces from another PDF, or a whole PDF, over this pattern">+ From another PDF…</button>
-        <input type="file" id="otherPdfIn" accept="application/pdf" hidden>
+        <input type="file" id="otherPdfIn" accept="application/pdf,.pdf" hidden>
         <div class="group" id="lineTools" hidden><button class="btn danger slim" id="clearLines" title="Removes every line and mark (Undo brings them back)">✕ Clear all lines</button></div>
       </div>
     </details>
@@ -828,7 +828,7 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
           <button class="btn slim" id="asmOpen2" hidden title="Back to putting the pages together, just as you left it">Edit page layout</button>
           <button class="btn slim" id="addPieceBtn" hidden></button><button class="btn slim" id="findPieces" hidden></button>
           <button class="btn slim" id="importPieces" title="Open a pattern PDF, tap the pieces you want and bring them in">Import pieces from a PDF…</button>
-          <input type="file" id="piecesIn" accept="application/pdf,.pdf,.json,application/json" hidden>
+          <input type="file" id="piecesIn" accept="application/pdf,.pdf" hidden>
         </div>
         <div class="group" id="sepBox" hidden>
           <button class="btn" id="sepBtn" title="Each marked piece becomes its own object with an exact outline, so you can move, turn and flip it on its own">Separate pieces</button>
