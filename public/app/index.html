@@ -846,7 +846,7 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
           <button class="btn slim" id="importPieces" hidden title="Open a pattern PDF, tap the pieces you want and bring them in">Import pieces from a PDF…</button>
           <input type="file" id="piecesIn" accept="application/pdf,.pdf" hidden>
         </div>
-        <div class="group" id="sepBox" hidden>
+        <div class="group" id="sepBox" hidden data-gone="1">
           <button class="btn" id="sepBtn" title="Each marked piece becomes its own object with an exact outline, so you can move, turn and flip it on its own">Separate pieces</button>
           <label class="check" for="sheetChk" id="sheetRow" hidden><span>Show the PDF sheet</span><input type="checkbox" id="sheetChk"></label>
           <button class="btn slim" id="sepBack" hidden title="Removes the separated pieces of this pattern and shows the sheet again">Put pieces back on the sheet</button>
@@ -4721,9 +4721,11 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
         const W = vp.width, H = vp.height, rot = st ? st.rot || 0 : 0, flip = st ? !!st.flip : false, pc = st && st.pos ? st.pos : [S.w / 2, S.h / 2];
         const a = rad(rot), co = Math.cos(a), si = Math.sin(a);
         const place = q => { let x = q[0] - W / 2, y = q[1] - H / 2; if (flip) x = -x; return [pc[0] + x * co - y * si, pc[1] + x * si + y * co]; };
-        const one = st && st.oneAt && Array.isArray(st.pieces) ? st.pieces[st.curPiece] : null;
+        let one = st && st.oneAt && Array.isArray(st.pieces) ? st.pieces[st.curPiece] : null;
+        if (one && pcs.some(x => x.pc.pid === one.id)) one = 'lifted';
         let outline = null;
-        if (one) {
+        if (one === 'lifted') outline = null;
+        else if (one) {
           if (one.vpts && one.vpts.length > 2) outline = one.vpts;
           else { try { const r = NotchVec.buildOutline(Object.assign(vec, { sheet: [W, H] }), maskOf(one)); outline = r && r.pts; } catch (err) { console.error(err); } }
         }
@@ -4734,11 +4736,14 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
           if (flip) l.rot = Math.round(norm180(180 - rot) * 100) / 100;
           MARKS.set(l.id, NotchVec.packMarks(NotchVec.marksFor(vec, outline)));
           S.lines.push(l);
-        } else {
+        } else if (one !== 'lifted') {
           const frame = [[0, 0], [W, 0], [W, H], [0, H], [0, 0]];
           const l = { id: newPcId(), type: 'free', name: label + ' · ' + rec.name.replace(/\.pdf$/i, ''), pts: frame.map(place), companion: rec.id,
             pc: { pid: 'whole_' + rec.id, file: rec.name, kind: 'sheet', pts0: frame }, color: 'pattern', dash: 'dash', wm: 1, extend: 'none', ruler: false, noLabel: false, rot };
-          MARKS.set(l.id, NotchVec.packMarks(vec.polys.map(P => ({ pts: P.pts, w: P.w, dash: P.dash, fill: P.fill }))));
+          const holes = pcs.map(x => x.pc.pts0).filter(Boolean), out = [];
+          const inHole = q => holes.some(h => NotchVec.inPoly(h, q[0], q[1]));
+          vec.polys.forEach(P => { if (!holes.length) { out.push({ pts: P.pts, w: P.w, dash: P.dash, fill: P.fill }); return; } let cur = []; const flush = () => { if (cur.length > 1) out.push({ pts: cur, w: P.w, dash: P.dash, fill: P.fill }); cur = []; }; P.pts.forEach(q => { if (inHole(q)) flush(); else cur.push(q); }); flush(); });
+          MARKS.set(l.id, NotchVec.packMarks(out));
           S.lines.push(l);
         }
       } catch (err) { console.error(err); toast('Could not draw that PDF'); return; }
@@ -4848,7 +4853,7 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
     fb.textContent = ''; fb.hidden = !PROJ.main; $('#drop').hidden = !!PROJ.main;
     [...box.children].forEach(el => fb.append(el));
     if (PROJ.main && !PROJ.lining) { const a = document.createElement('button'); a.type = 'button'; a.className = 'filebtn addbox'; a.innerHTML = '<span class="plus">+</span><b>Add lining</b><span>PDF</span>'; a.title = 'Add the lining pattern; it shows on the same mat'; a.addEventListener('click', () => pickFile('lining')); fb.append(a); }
-    if (PROJ.main) { const a = document.createElement('button'); a.type = 'button'; a.className = 'filebtn addbox'; a.innerHTML = '<span class="plus">+</span><b>Import pieces</b><span>PDF</span>'; a.title = 'Open another pattern PDF, tap the pieces you want and bring them in'; a.addEventListener('click', () => { const i = $('#piecesIn'); i.value = ''; i.click(); }); fb.append(a); }
+    if (false) { const a = document.createElement('button'); a.type = 'button'; a.className = 'filebtn addbox'; a.innerHTML = '<span class="plus">+</span><b>Import pieces</b><span>PDF</span>'; a.title = 'Open another pattern PDF, tap the pieces you want and bring them in'; a.addEventListener('click', () => { const i = $('#piecesIn'); i.value = ''; i.click(); }); fb.append(a); }
     $('#patCount').textContent = PROJ.main ? PROJ.main.name.replace(/\.pdf$/i, '') : '';
     $('#patNote').hidden = !!PROJ.main;
     $('#addLining').hidden = !PROJ.main || !!PROJ.lining;
@@ -6381,7 +6386,7 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
     opt = opt || {};
     if (!pdfC.width || !S.pieces.length) return;
     list = list.filter(p => !sepOf(p));
-    if (!list.length) { if (!opt.keep) setSheet(false); return; }
+    if (!list.length) return;
     if (!opt.keep) toast('Separating ' + (list.length > 1 ? list.length + ' pieces' : '"' + pName(list[0]) + '"') + '…');
     await new Promise(r => setTimeout(r, 30));
     let vec = null;
@@ -6401,8 +6406,7 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
     }
     if (!made.length) { toast('Could not make outlines for those pieces'); return; }
     if (opt.keep) { S.matSel = null; S.selId = made[0].id; renderLineList(); renderPieces(); drawPieces(); drawLines(); record(); saveMarks(); return made; }
-    S.oneAt = false; $('#oneAtChk').checked = false; S.matSel = null; S.selId = null;
-    setSheet(false, true);
+    S.oneAt = false; $('#oneAtChk').checked = false; S.matSel = null; S.selId = null; S.sheetOff = false; drawPieces();
     renderLineList(); renderPieces(); drawLines(); record(); saveMarks();
     const n = made.length;
     toast((n > 1 ? n + ' pieces' : '"' + made[0].name + '"') + ' separated · drag one to move it on its own' +
@@ -6421,7 +6425,7 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
     renderLineList(); renderPieces(); drawPieces(); drawLines(); syncSepUI(); record(); saveMarks();
   }
   function syncSepUI() {
-    const box = $('#sepBox'); if (!box) return;
+    const box = $('#sepBox'); if (!box) return; if (box.dataset.gone) { box.hidden = true; return; }
     const mine = S.lines.filter(l => l.pc && l.pc.file === S.fileName), any = S.pieces.length > 0 && !!pdfC.width;
     box.hidden = !any && !mine.length;
     const left = S.pieces.filter(p => !sepOf(p)).length;
@@ -7038,7 +7042,7 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
     const d = JSON.parse(json);
     HIST.restoring = true;
     S.pc = { x: d.pos[0], y: d.pos[1] }; S.rot = d.rot; S.flip = d.flip;
-    S.lines = d.lines; S.selId = d.selId; S.foldId = d.fold || null; S.sheetOff = !!d.sheet; S.mainHidden = !!d.mainHidden; S.vEdits = d.vedits || null; S.pieces = d.pieces; S.pieces.forEach(p => { if (/^Piece \d+$/i.test((p.name || '').trim())) p.name = ''; }); S.curPiece = d.curPiece; S.oneAt = d.oneAt; S.dimCut = d.dimCut;
+    S.lines = d.lines; S.selId = d.selId; S.foldId = d.fold || null; S.sheetOff = false; S.mainHidden = !!d.mainHidden; S.vEdits = d.vedits || null; S.pieces = d.pieces; S.pieces.forEach(p => { if (/^Piece \d+$/i.test((p.name || '').trim())) p.name = ''; }); S.curPiece = d.curPiece; S.oneAt = d.oneAt; S.dimCut = d.dimCut;
     [S.ruler, S.lunit] = d.ruler; [S.grid, S.gridSize, S.gridAlpha, S.gridCol] = d.grid;
     $('#oneAtChk').checked = S.oneAt; $('#dimCutChk').checked = S.dimCut; $('#rulerChk').checked = S.ruler; syncRulerBtn(); $('#gridChk').checked = S.grid; syncGridBtn();
     $$('[data-lunit]').forEach(x => x.classList.toggle('on', x.dataset.lunit === S.lunit));
