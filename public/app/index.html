@@ -348,7 +348,12 @@ kbd { font-family: var(--mono); border: 1px solid var(--line); padding: 1px 5px;
 .subtools .seg .btn { height: 34px; font-size: 10px; }
 .litem { border: 1px solid var(--line); }
 .litem.sel { border-color: var(--brass); }
-.lrow { display: grid; grid-template-columns: 22px minmax(0,1fr) 34px; align-items: center; gap: 6px; padding: 2px 2px 0 8px; cursor: pointer; }
+.lrow { display: grid; grid-template-columns: 28px 26px minmax(0,1fr) 34px; align-items: center; gap: 6px; padding: 2px 2px 0 8px; cursor: pointer; }
+.leye { width: 28px; height: 28px; border: none; background: transparent; color: var(--faint); cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0; }
+.leye.on { color: var(--brass); }
+.cwheel { position: relative; width: 24px; height: 24px; border-radius: 50%; background: conic-gradient(#ff3b30, #ffcc00, #34c759, #00c7be, #007aff, #af52de, #ff3b30); display: flex; align-items: center; justify-content: center; cursor: pointer; }
+.cwheel i { width: 14px; height: 14px; border-radius: 50%; box-shadow: 0 0 0 2px var(--panel); }
+.cwheel input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; border: 0; padding: 0; }
 .lrow .sw2 { width: 16px; height: 3px; justify-self: center; border-radius: 2px; }
 .lrow input[type="text"], .prow input[type="text"] { height: 34px; border: none; background: transparent; padding: 0; font-family: var(--serif); font-style: italic; font-size: 16px; min-width: 0; width: 100%; }
 .lrow input[type="text"]:focus, .prow input[type="text"]:focus { outline: none; box-shadow: inset 0 -1px 0 var(--brass); }
@@ -1059,7 +1064,7 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
 <div id="lsPop" hidden role="dialog" aria-label="Line style"></div>
 <div id="bwPop" hidden role="dialog" aria-label="Bias strip line thickness"></div>
 <div id="groupBar" hidden role="toolbar" aria-label="Make a group">
-  <span id="groupMsg">Tap objects to group</span>
+  <span id="groupMsg">Tap pieces or objects on the mat or in the list to group them</span>
   <button class="btn slim" id="groupCancel">Cancel</button>
   <button class="btn slim" id="groupDone">Group</button>
 </div>
@@ -2533,16 +2538,27 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
       if (isMarkStroke(l) && firstOfGroup(l) !== l) return;
       const item = document.createElement('div'); item.className = 'litem' + (l.id === S.selId || (isMarkStroke(l) && l.group === selG) ? ' sel' : '');
       const row = document.createElement('div'); row.className = 'lrow';
-      const sw = document.createElement('span'); sw.className = 'sw2';
-      sw.style.background = colorOf(l); if (l.type === 'free') { sw.style.height = '6px'; sw.style.borderRadius = '50%'; sw.style.width = '6px'; }
+      const eye = document.createElement('button'); eye.type = 'button'; eye.className = 'leye' + (l.hidden ? '' : ' on');
+      eye.title = l.hidden ? 'Show on the mat' : 'Hide on the mat'; eye.setAttribute('aria-label', eye.title + ': ' + l.name); eye.setAttribute('aria-pressed', String(!l.hidden));
+      eye.innerHTML = l.hidden ? '<svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12z"/><circle cx="12" cy="12" r="3"/><path d="M4 20L20 4"/></svg>' : '<svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>';
+      eye.addEventListener('click', e => { e.stopPropagation(); const v = !l.hidden, grp = isMarkStroke(l) ? S.lines.filter(x => x.group === l.group) : [l]; grp.forEach(x => { if (v) x.hidden = true; else delete x.hidden; }); if (v && grp.some(x => x.id === S.selId)) S.selId = null; renderLineList(); drawLines(); if (typeof renderPatternList === 'function') renderPatternList(); });
+      // a colour wheel for each object
+      const sw = document.createElement('label'); sw.className = 'cwheel'; sw.title = 'Colour of ' + l.name;
+      const dot = document.createElement('i'); dot.style.background = colorOf(l);
+      const ci = document.createElement('input'); ci.type = 'color'; ci.setAttribute('aria-label', 'Colour of ' + l.name);
+      { const c = hexRgb(colorOf(l)); ci.value = '#' + c.map(v => Math.round(v).toString(16).padStart(2, '0')).join(''); }
+      ci.addEventListener('click', e => e.stopPropagation());
+      ci.addEventListener('input', () => { const grp = l.group ? S.lines.filter(x => x.group === l.group && (x === l || isMarkStroke(l))) : [l]; grp.forEach(x => { x.color = 'custom'; x.hex = ci.value; }); dot.style.background = ci.value; drawLines(); record(); });
+      sw.append(dot, ci);
       const inp = document.createElement('input'); inp.type = 'text'; inp.value = l.name; inp.id = 'name-' + l.id;
       inp.setAttribute('aria-label', 'Name of ' + l.name);
       inp.addEventListener('input', () => { (isMarkStroke(l) ? S.lines.filter(x => x.group === l.group) : [l]).forEach(x => x.name = inp.value); drawLines(); record(); });
       const more = document.createElement('button'); more.type = 'button'; more.className = 'more';
       more.textContent = '⋯'; more.setAttribute('aria-label', 'Options for ' + l.name); more.setAttribute('aria-haspopup', 'menu');
       more.addEventListener('click', e => { e.stopPropagation(); const r = more.getBoundingClientRect(); toggleMenu(l.id, () => lineMenu(l, r.right, r.bottom + 4, true)); });
-      row.addEventListener('click', e => selectLine(l.id, e.target === inp));
-      row.append(sw, inp, more);
+      row.addEventListener('click', e => { if (S.pick) { togglePick(l); renderLineList(); return; } selectLine(l.id, e.target === inp); });
+      if (S.pick && S.pick.has(l.id)) item.classList.add('sel');
+      row.append(eye, sw, inp, more);
       const opts = document.createElement('div'); opts.className = 'lopts';
       const mk = (label, pressed, title, fn) => {
         const b = document.createElement('button'); b.type = 'button'; b.className = 'ltog'; b.textContent = label; b.title = title;
@@ -4673,12 +4689,12 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
     if (pcs.length) {
       pcs.forEach(src => {
         const c = JSON.parse(JSON.stringify(src)); delete c._fit; delete c.local; delete c.screen; delete c.pinned; delete c.group;
-        c.id = newPcId(); c.companion = rec.id; c.color = 'red'; c.name = label + ' · ' + src.name; c.noLabel = false;
+        c.id = newPcId(); c.companion = rec.id; c.name = label + ' · ' + src.name; c.noLabel = false;
         if (marks[src.id]) MARKS.set(c.id, marks[src.id]);
         S.lines.push(c);
       });
     } else {
-      // no separated pieces: its whole sheet, placed as it was
+      // no separated pieces: the piece it was showing on its own, or else its whole sheet, placed as it was
       const buf = await DB.get('files', rec.id).catch(() => null);
       if (!buf) { toast('That PDF is no longer saved on this device'); return; }
       try {
@@ -4687,15 +4703,30 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
         const W = vp.width, H = vp.height, rot = st ? st.rot || 0 : 0, flip = st ? !!st.flip : false, pc = st && st.pos ? st.pos : [S.w / 2, S.h / 2];
         const a = rad(rot), co = Math.cos(a), si = Math.sin(a);
         const place = q => { let x = q[0] - W / 2, y = q[1] - H / 2; if (flip) x = -x; return [pc[0] + x * co - y * si, pc[1] + x * si + y * co]; };
-        const frame = [[0, 0], [W, 0], [W, H], [0, H], [0, 0]];
-        const l = { id: newPcId(), type: 'free', name: label + ' · ' + rec.name.replace(/\.pdf$/i, ''), pts: frame.map(place), companion: rec.id,
-          pc: { pid: 'whole_' + rec.id, file: rec.name, kind: 'sheet', pts0: frame }, color: 'red', dash: 'dash', wm: 1, extend: 'none', ruler: false, noLabel: false, rot };
-        MARKS.set(l.id, NotchVec.packMarks(vec.polys.map(P => ({ pts: P.pts, w: P.w, dash: P.dash, fill: P.fill }))));
-        S.lines.push(l);
+        const one = st && st.oneAt && Array.isArray(st.pieces) ? st.pieces[st.curPiece] : null;
+        let outline = null;
+        if (one) {
+          if (one.vpts && one.vpts.length > 2) outline = one.vpts;
+          else { try { const r = NotchVec.buildOutline(Object.assign(vec, { sheet: [W, H] }), maskOf(one)); outline = r && r.pts; } catch (err) { console.error(err); } }
+        }
+        if (outline) {
+          const pts0 = outline.concat([outline[0]]).map(q => [q[0], q[1]]);
+          const l = { id: newPcId(), type: 'free', name: label + ' · ' + (one.name || 'Piece ' + ((st.curPiece || 0) + 1)), pts: pts0.map(place), companion: rec.id,
+            pc: { pid: one.id, file: rec.name, kind: 'vector', pts0 }, color: 'pattern', dash: 'solid', wm: 1, extend: 'none', ruler: false, noLabel: false, rot };
+          if (flip) l.rot = Math.round(norm180(180 - rot) * 100) / 100;
+          MARKS.set(l.id, NotchVec.packMarks(NotchVec.marksFor(vec, outline)));
+          S.lines.push(l);
+        } else {
+          const frame = [[0, 0], [W, 0], [W, H], [0, H], [0, 0]];
+          const l = { id: newPcId(), type: 'free', name: label + ' · ' + rec.name.replace(/\.pdf$/i, ''), pts: frame.map(place), companion: rec.id,
+            pc: { pid: 'whole_' + rec.id, file: rec.name, kind: 'sheet', pts0: frame }, color: 'pattern', dash: 'dash', wm: 1, extend: 'none', ruler: false, noLabel: false, rot };
+          MARKS.set(l.id, NotchVec.packMarks(vec.polys.map(P => ({ pts: P.pts, w: P.w, dash: P.dash, fill: P.fill }))));
+          S.lines.push(l);
+        }
       } catch (err) { console.error(err); toast('Could not draw that PDF'); return; }
     }
     renderLineList(); drawLines(); saveMarks(); record(); renderPatternList();
-    toast(label + ' showing on the mat, in red · drag a piece to move it, the round handle turns it');
+    toast(label + ' showing on the mat · drag a piece to move it, the round handle turns it');
   }
   function companionOff(rec) { S.lines.forEach(l => { if (l.companion === rec.id) l.hidden = true; }); if (selLine() && selLine().hidden) S.selId = null; drawLines(); renderLineList(); renderPatternList(); record(); }
   const companionShown = rec => S.lines.some(l => l.companion === rec.id && !l.hidden);
@@ -6458,7 +6489,7 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
     const at = toMm(barSpace().mid, innerHeight / 2);
     const l = { id: newPcId(), type: 'free', name: S.lines.some(x => x.name === r.name) ? uniqueName(r.name) : r.name,
       pts: pts0.map(q => [q[0] - cx + at[0], q[1] - cy + at[1]]), pc: { pid: r.pid, file: r.file, kind: r.kind, pts0 },
-      color: 'red', dash: 'solid', wm: 1, extend: 'none', ruler: false, noLabel: true, rot: 0 };
+      color: 'pattern', dash: 'solid', wm: 1, extend: 'none', ruler: false, noLabel: true, rot: 0 };
     MARKS.set(l.id, r.marks || []);
     S.lines.push(l); S.selId = l.id; renderLineList(); drawLines(); record(); saveMarks();
     toast('"' + l.name + '" from ' + r.file.replace(/\.pdf$/i, '') + ' · drag it beside your pieces to compare');
@@ -6611,7 +6642,7 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
     list.forEach((pts, k) => {
       const pts0 = pts.concat([pts[0]]).map(q => [Math.round(q[0] * 100) / 100, Math.round(q[1] * 100) / 100]);
       const l = { id: newPcId(), type: 'free', name: freeName(base + ' · piece ' + (k + 1)), pts: pts0.map(q => [q[0] + dx, q[1] + dy]),
-        pc: { pid: 'o' + k + '_' + Date.now(), file: OP.file, kind: 'vector', pts0 }, color: 'red', dash: 'solid', wm: 1, extend: 'none', ruler: false, noLabel: false, rot: 0 };
+        pc: { pid: 'o' + k + '_' + Date.now(), file: OP.file, kind: 'vector', pts0 }, color: 'pattern', dash: 'solid', wm: 1, extend: 'none', ruler: false, noLabel: false, rot: 0 };
       MARKS.set(l.id, NotchVec.packMarks(NotchVec.marksFor(OP.vec, pts)));
       S.lines.push(l); shelve(l); firstId = firstId || l.id;
     });
@@ -6625,10 +6656,10 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
     const frame = [[x0, y0], [x1, y0], [x1, y1], [x0, y1], [x0, y0]];
     const at = toMm(barSpace().mid, innerHeight / 2), dx = at[0] - (x0 + x1) / 2, dy = at[1] - (y0 + y1) / 2;
     const l = { id: newPcId(), type: 'free', name: freeName(base + ' · whole'), pts: frame.map(q => [q[0] + dx, q[1] + dy]),
-      pc: { pid: 'whole_' + Date.now(), file: OP.file, kind: 'sheet', pts0: frame }, color: 'red', dash: 'dash', wm: 1, extend: 'none', ruler: false, noLabel: false, rot: 0 };
+      pc: { pid: 'whole_' + Date.now(), file: OP.file, kind: 'sheet', pts0: frame }, color: 'pattern', dash: 'dash', wm: 1, extend: 'none', ruler: false, noLabel: false, rot: 0 };
     MARKS.set(l.id, NotchVec.packMarks(vec.polys.map(P => ({ pts: P.pts, w: P.w, dash: P.dash, fill: P.fill }))));
     S.lines.push(l); S.selId = l.id; renderLineList(); drawLines(); record(); saveMarks(); openFold('lines');
-    toast('All of ' + base + ' is over your pattern · drag to move it, the round handle turns it, long-press for flip and colour');
+    toast('All of ' + base + ' is over your pattern · drag to move it, the round handle turns it, long-press for flip');
   }
 
   { const _rp = renderPieces; renderPieces = function () {
@@ -8567,7 +8598,7 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
   if (PHONE) phoneStart();
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { drawGrid(); drawTest(); drawLines(); });
   // automated checks only (never on in normal use)
-  if (/[?&]notchtest\b/.test(location.search)) window.__N = { S, PROJ, companionOn, companionOff, setMainHidden, renderPatternList, turn, quarterTurn, PW, VG, OP, opTap, bringWhole, findFromLoops, pwGraph, pwShapeTap, pwUnlineTap, pwAddLine, pwSave, AI, aiFind, cellsUnder, openPieces, FILL, fillTapWith, selApply, MARKS, separatePieces, setSheet, flipSel, pcAt, putBack, fillGrid, fillTap, fillMakePiece, selClear, toMm, toScreen, drawLines, renderPieces, go, bringPiece, importPc, saveNow, togglePtEdit, pcPointGesture, lineEditGesture, rotateSel, P, DB };
+  if (/[?&]notchtest\b/.test(location.search)) window.__N = { S, PROJ, startPick, togglePick, makeGroup, renderLineList, companionOn, companionOff, setMainHidden, renderPatternList, turn, quarterTurn, PW, VG, OP, opTap, bringWhole, findFromLoops, pwGraph, pwShapeTap, pwUnlineTap, pwAddLine, pwSave, AI, aiFind, cellsUnder, openPieces, FILL, fillTapWith, selApply, MARKS, separatePieces, setSheet, flipSel, pcAt, putBack, fillGrid, fillTap, fillMakePiece, selClear, toMm, toScreen, drawLines, renderPieces, go, bringPiece, importPc, saveNow, togglePtEdit, pcPointGesture, lineEditGesture, rotateSel, P, DB };
 })();
 </script>
 
