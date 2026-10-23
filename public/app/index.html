@@ -3318,7 +3318,7 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
         }
         // pieces that are now objects of their own are lifted off the sheet (they're drawn where they are now)
         if (lifted.length) {
-          g.save(); g.globalCompositeOperation = 'destination-out'; g.fillStyle = g.strokeStyle = '#000'; g.lineWidth = 1.6; g.lineJoin = 'round';
+          g.save(); g.globalCompositeOperation = 'destination-out'; g.fillStyle = g.strokeStyle = '#000'; g.lineWidth = 3 + 0.8 * (S.boost || 0); g.lineJoin = 'round';
           lifted.forEach(l => { g.beginPath(); l.pc.pts0.forEach((q, k) => k ? g.lineTo(q[0], q[1]) : g.moveTo(q[0], q[1])); g.closePath(); g.fill(); g.stroke(); });
           g.restore();
         }
@@ -4741,7 +4741,9 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
           const l = { id: newPcId(), type: 'free', name: label + ' · ' + rec.name.replace(/\.pdf$/i, ''), pts: frame.map(place), companion: rec.id,
             pc: { pid: 'whole_' + rec.id, file: rec.name, kind: 'sheet', pts0: frame }, color: 'pattern', dash: 'dash', wm: 1, extend: 'none', ruler: false, noLabel: false, rot };
           const holes = pcs.map(x => x.pc.pts0).filter(Boolean), out = [];
-          const inHole = q => holes.some(h => NotchVec.inPoly(h, q[0], q[1]));
+          const nearEdge = (h, q) => { for (let i = 0, j = h.length - 1; i < h.length; j = i++) { const a = h[j], b = h[i], dx = b[0] - a[0], dy = b[1] - a[1], L2 = dx * dx + dy * dy || 1; let t = ((q[0] - a[0]) * dx + (q[1] - a[1]) * dy) / L2; t = Math.max(0, Math.min(1, t)); if (Math.hypot(a[0] + dx * t - q[0], a[1] + dy * t - q[1]) < 1.5) return true; } return false; };
+          const boxes = holes.map(h => h.reduce((m, q) => [Math.min(m[0], q[0]) - 2, Math.min(m[1], q[1]) - 2, Math.max(m[2], q[0]) + 2, Math.max(m[3], q[1]) + 2], [Infinity, Infinity, -Infinity, -Infinity]));
+          const inHole = q => holes.some((h, k) => { const b = boxes[k]; return q[0] >= b[0] && q[1] >= b[1] && q[0] <= b[2] && q[1] <= b[3] && (NotchVec.inPoly(h, q[0], q[1]) || nearEdge(h, q)); });
           vec.polys.forEach(P => { if (!holes.length) { out.push({ pts: P.pts, w: P.w, dash: P.dash, fill: P.fill }); return; } let cur = []; const flush = () => { if (cur.length > 1) out.push({ pts: cur, w: P.w, dash: P.dash, fill: P.fill }); cur = []; }; P.pts.forEach(q => { if (inHole(q)) flush(); else cur.push(q); }); flush(); });
           MARKS.set(l.id, NotchVec.packMarks(out));
           S.lines.push(l);
