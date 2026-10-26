@@ -660,7 +660,7 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
             <span></span><button class="btn" data-move="0,1" aria-label="Move down">↓</button><span></span>
           </div>
 </div>
-<button id="unzoom" hidden title="Back to true 1:1 scale (0)">⤺ Back to calibrated view <b id="zoomLvl">×1.0</b></button>
+<button id="unzoom" hidden title="Zoomed: not true size. Tap (or press 0) to go back to the calibrated view">⤺ Not true size · <b id="zoomLvl">×1.0</b> · tap to go back</button>
 
 <aside id="panel" aria-label="Projector controls">
   <div class="ph" id="panelHead" title="Drag to move. Drop on a screen edge to dock.">
@@ -6183,7 +6183,7 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
       else return;
     }
     if (pinch.mode === 'zoom') {
-      const s = Math.max(1, Math.min(12, pinch.s * d / pinch.d));
+      const s = Math.max(0.2, Math.min(12, pinch.s * d / pinch.d));
       // keep the point that was under the fingers under the fingers
       const bx = (pinch.cx - pinch.tx) / pinch.s, by = (pinch.cy - pinch.ty) / pinch.s;
       setView(s, cx - bx * s, cy - by * s);
@@ -6217,12 +6217,13 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
     placePattern();
   }
   function setView(s, tx, ty) {
-    if (s <= 1.02) { s = 1; tx = 0; ty = 0; }
+    // zoom works both ways (0.2× to 12×); close to true size it settles back to the calibrated view
+    if (Math.abs(s - 1) <= 0.03) { s = 1; tx = 0; ty = 0; }
     S.view = { s, tx, ty };
     applyTransform();
     const zoomed = s !== 1 && S.step === 'project';
     $('#unzoom').hidden = !zoomed;
-    $('#zoomLvl').textContent = '×' + s.toFixed(1);
+    $('#zoomLvl').textContent = (s < 1 ? 'zoomed out ' : 'zoomed in ') + '×' + (s < 1 ? s.toFixed(2) : s.toFixed(1));
   }
   function resetView() { setView(1, 0, 0); }
   stage.addEventListener('pointerdown', e => {
@@ -6269,7 +6270,7 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
     e.preventDefault();
     const v = S.view;
     if (e.ctrlKey) {
-      const s = Math.max(1, Math.min(12, v.s * Math.exp(-e.deltaY * 0.01)));
+      const s = Math.max(0.2, Math.min(12, v.s * Math.exp(-e.deltaY * 0.01)));
       const bx = (e.clientX - v.tx) / v.s, by = (e.clientY - v.ty) / v.s;
       setView(s, e.clientX - bx * s, e.clientY - by * s);
     } else if (v.s !== 1) setView(v.s, v.tx - e.deltaX, v.ty - e.deltaY);
