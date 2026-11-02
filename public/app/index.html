@@ -6485,7 +6485,7 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
   /* ---------- v150: every piece is an object of its own ----------
      Marked pieces are lifted off the sheet automatically, so each one is an object from the start (no separate
      pieces list, no one-piece view). Objects lists them under Main fabric, Lining and Miscellaneous, each with an eye;
-     the header's eye hides or shows what's on under it and remembers which ones. "Show whole PDF" puts the untouched
+     the header's eye hides or shows what's on under it and remembers which ones. "Show original PDF" puts the untouched
      sheet back instead of the pieces. Drawings made on a piece belong to it: they move, turn, flip and hide with it. */
   function ownPc(l) { return !!(l && l.pc && !l.companion && l.pc.file === S.fileName && l.pc.kind !== 'sheet'); }
   function miscPc(l) { return !!(l && l.pc && !l.companion && (l.pc.file !== S.fileName || l.pc.kind === 'sheet')); }
@@ -6591,7 +6591,7 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
     S.sheetOff = allUp && !S.wholePdf;
     if (S.wholePdf && selLine() && ownPc(selLine())) S.selId = null;
     drawPieces(); drawLines(); updateMirror(); renderLineList(); record();
-    toast(S.wholePdf ? 'Whole PDF showing, just as it is · its pieces are hidden meanwhile' : 'Pieces back on the mat');
+    toast(S.wholePdf ? 'Original PDF showing, just as it is · its pieces are hidden meanwhile' : 'Pieces back on the mat');
   }
   var compOn = rec => S.lines.some(l => l.companion === rec.id && !l.mHid && !l.hidden);
   var compWhole = rec => S.lines.some(l => l.companion === rec.id && l.pc && l.pc.kind === 'sheet');
@@ -6725,7 +6725,7 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
       const bt = document.createElement('div'); bt.className = 'row2 obtns';
       ['editPiecesBtn', 'asmOpen2'].forEach(q => { const b = keptEl(q); if (b) bt.append(b); });
       body.append(bt);
-      if (S.pieces.length) check(body, 'Show whole PDF', S.wholePdf, 'Show the PDF sheet just as it is, with its notes and size table · the pieces hide meanwhile', v => setWholePdf(v));
+      if (S.pieces.length) check(body, 'Show original PDF', S.wholePdf, 'Show the PDF sheet just as it is, with its notes and size table · the pieces hide meanwhile', v => setWholePdf(v));
     }
     // 2. the other pattern of the project
     if (otherRec) {
@@ -6739,7 +6739,7 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
       b.title = 'Switch to the ' + title.toLowerCase() + ' to mark or edit its pieces · the mat stays as it is';
       b.addEventListener('click', () => switchPattern(otherRec.id).then(() => renderPatternList()));
       bt.append(b); body.append(bt);
-      if (otherPcs.length) check(body, 'Show whole PDF', compWhole(otherRec), 'Show this PDF sheet just as it is · its pieces hide meanwhile', v => setCompWhole(otherRec, v));
+      if (otherPcs.length) check(body, 'Show original PDF', compWhole(otherRec), 'Show this PDF sheet just as it is · its pieces hide meanwhile', v => setCompWhole(otherRec, v));
     }
     // 3. brought in from other patterns
     const bring = keptEl('bringBtn');
