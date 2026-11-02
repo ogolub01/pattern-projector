@@ -6616,16 +6616,31 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
       drawPieces();
     }
     if (!S.locked && !objLocked(l) && l.pts && l.pts.length > 2) {
-      const pts = l.pts.length > 3 ? l.pts.slice(0, -1) : l.pts;
-      let cx = 0, cy = 0; pts.forEach(q => { cx += q[0]; cy += q[1]; }); cx /= pts.length; cy /= pts.length;
-      const dx = S.w / 2 - cx, dy = S.h / 2 - cy;
-      if (Math.hypot(dx, dy) > 0.5) applyObjs(snapObjs(xfGroup(l)), q => [q[0] + dx, q[1] + dy]);
+      const c = pcMid(l), dx = S.w / 2 - c[0], dy = S.h / 2 - c[1];
+      if (Math.hypot(dx, dy) > 0.5) {
+        // centring is only for now: Show all puts it back where it was, unless it's been moved by hand since
+        if (!(l.tmp && l.tmp.sig === pcSig(l))) l.tmp = { home: pcHome(l) };
+        applyObjs(snapObjs(xfGroup(l)), q => [q[0] + dx, q[1] + dy]);
+        l.tmp.sig = pcSig(l);
+      }
     }
     drawLines(); renderLineList(); renderPatternList(); record();
+  }
+  function pcMid(l) { const pts = l.pts.length > 3 ? l.pts.slice(0, -1) : l.pts; let cx = 0, cy = 0; pts.forEach(q => { cx += q[0]; cy += q[1]; }); return [cx / pts.length, cy / pts.length]; }
+  // where a piece is, measured on the pattern itself (so moving or turning the whole mat doesn't count as moving it)
+  function pcHome(l) { const c = pcMid(l); return l.pinned && S.base ? toLocal(c) : c; }
+  function pcSig(l) { const h = pcHome(l), a = l.pinned && S.base ? toLocal(l.pts[0]) : l.pts[0]; return [h[0], h[1], a[0], a[1]].map(v => Math.round(v * 2)).join(','); }
+  // back where it was before it was centred (if it hasn't been moved by hand since)
+  function pcGoHome(l) {
+    const t = l.tmp; delete l.tmp;
+    if (!t || t.sig !== pcSig(l) || objLocked(l)) return;
+    const now = pcMid(l), home = l.pinned && S.base ? toWorld(t.home) : t.home, dx = home[0] - now[0], dy = home[1] - now[1];
+    if (Math.hypot(dx, dy) > 0.1) applyObjs(snapObjs(xfGroup(l)), q => [q[0] + dx, q[1] + dy]);
   }
   // Show all / Hide all under one heading
   function setAllPcs(list, on, key, rec) {
     list.forEach(x => { if (on) delete x.hidden; else x.hidden = true; });
+    if (on) list.forEach(x => { if (x.tmp) pcGoHome(x); });
     if (on) {
       if (key === 'own') { S.mainHidden = false; if (S.wholePdf) { S.wholePdf = false; S.sheetOff = S.pieces.length > 0 && S.pieces.every(p => sepOf(p)); } }
       else if (key === 'other' && rec) { S.lines = S.lines.filter(x => !(x.companion === rec.id && x.pc && x.pc.kind === 'sheet')); S.lines.forEach(x => { if (x.companion === rec.id) { delete x.mHid; delete x.wHid; } }); }
