@@ -363,6 +363,7 @@ kbd { font-family: var(--mono); border: 1px solid var(--line); padding: 1px 5px;
 .obody .note { margin: 2px 0; }
 .owhole { border: 1px dashed var(--line); padding: 6px 8px; }
 .obtns { margin-top: 2px; }
+.oall .btn { flex: 1; }
 .obtns .btn { flex: 1; }
 .litem.sub { margin-left: 26px; border-style: dashed; }
 .litem.masked { opacity: .5; }
@@ -2607,7 +2608,7 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
       const more = document.createElement('button'); more.type = 'button'; more.className = 'more';
       more.textContent = '⋯'; more.setAttribute('aria-label', 'Options for ' + l.name); more.setAttribute('aria-haspopup', 'menu');
       more.addEventListener('click', e => { e.stopPropagation(); const r = more.getBoundingClientRect(); toggleMenu(l.id, () => lineMenu(l, r.right, r.bottom + 4, true)); });
-      row.addEventListener('click', e => { if (S.pick) { togglePick(l); renderLineList(); return; } selectLine(l.id, e.target === inp); });
+      row.addEventListener('click', e => { if (S.pick) { togglePick(l); renderLineList(); return; } const was = S.selId; selectLine(l.id, e.target === inp); if (isPiece && S.selId === l.id && was !== l.id) bringPcIntoView(l); });
       if (S.pick && S.pick.has(l.id)) item.classList.add('sel');
       if (cb) row.append(eye, cb, lk, sw, inp, more); else row.append(eye, lk, sw, inp, more);
       const opts = document.createElement('div'); opts.className = 'lopts';
@@ -6605,6 +6606,34 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
     if (selLine() && lineOff(selLine())) S.selId = null;
     drawLines(); renderLineList(); renderPatternList(); saveMarks(); record();
   }
+  // picking a piece in Objects: it shows (if it was hidden) and comes to the middle of the mat, with its drawings
+  function bringPcIntoView(l) {
+    if (lineOff(l)) {
+      delete l.hidden; delete l.mHid; delete l.wHid;
+      if (ownPc(l)) { S.mainHidden = false; if (S.wholePdf) { S.wholePdf = false; S.sheetOff = S.pieces.length > 0 && S.pieces.every(p => sepOf(p)); } }
+      else if (l.companion) S.lines = S.lines.filter(x => !(x.companion === l.companion && x.pc && x.pc.kind === 'sheet'));
+      else if (miscPc(l)) S.miscHidden = false;
+      drawPieces();
+    }
+    if (!S.locked && !objLocked(l) && l.pts && l.pts.length > 2) {
+      const pts = l.pts.length > 3 ? l.pts.slice(0, -1) : l.pts;
+      let cx = 0, cy = 0; pts.forEach(q => { cx += q[0]; cy += q[1]; }); cx /= pts.length; cy /= pts.length;
+      const dx = S.w / 2 - cx, dy = S.h / 2 - cy;
+      if (Math.hypot(dx, dy) > 0.5) applyObjs(snapObjs(xfGroup(l)), q => [q[0] + dx, q[1] + dy]);
+    }
+    drawLines(); renderLineList(); renderPatternList(); record();
+  }
+  // Show all / Hide all under one heading
+  function setAllPcs(list, on, key, rec) {
+    list.forEach(x => { if (on) delete x.hidden; else x.hidden = true; });
+    if (on) {
+      if (key === 'own') { S.mainHidden = false; if (S.wholePdf) { S.wholePdf = false; S.sheetOff = S.pieces.length > 0 && S.pieces.every(p => sepOf(p)); } }
+      else if (key === 'other' && rec) { S.lines = S.lines.filter(x => !(x.companion === rec.id && x.pc && x.pc.kind === 'sheet')); S.lines.forEach(x => { if (x.companion === rec.id) { delete x.mHid; delete x.wHid; } }); }
+      else if (key === 'misc') S.miscHidden = false;
+    }
+    if (selLine() && lineOff(selLine())) S.selId = null;
+    drawPieces(); drawLines(); renderLineList(); renderPatternList(); record();
+  }
   // ⋯ → Show only this one: every other piece under the same heading is hidden
   function isolatePc(l) {
     const same = x => x.pc && x.pc.kind !== 'sheet' && (l.companion ? x.companion === l.companion : ownPc(l) ? ownPc(x) : miscPc(x));
@@ -6656,6 +6685,12 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
       const body = document.createElement('div'); body.className = 'obody'; body.hidden = !open[key];
       sec.append(h, body); box.append(sec); return body;
     };
+    const allRow = (body, list, key, rec) => {
+      if (list.length < 2) return;
+      const r = document.createElement('div'); r.className = 'row2 oall';
+      [['Show all', true], ['Hide all', false]].forEach(([t, on]) => { const b = document.createElement('button'); b.type = 'button'; b.className = 'btn slim'; b.textContent = t; b.title = (on ? 'Show every piece under ' : 'Hide every piece under ') + 'this heading'; b.addEventListener('click', () => setAllPcs(list, on, key, rec)); r.append(b); });
+      body.append(r);
+    };
     const check = (body, label, on, title, fn) => {
       const l = document.createElement('label'); l.className = 'check owhole'; l.title = title;
       const sp = document.createElement('span'); sp.textContent = label;
@@ -6667,7 +6702,7 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
       const slot = SAVE.meta && SAVE.meta.slot === 'lining' ? 'Lining' : S.pdf ? 'Main fabric' : 'Sample pattern';
       const name = S.fileName ? S.fileName.replace(/\.pdf$/i, '') : '';
       const body = head('own', slot, [name, cutOf(ownLines)].filter(Boolean).join(' · '), !S.mainHidden, () => { setMainHidden(!S.mainHidden); renderLineList(); });
-      if (S.pieces.length) check(body, 'Show whole PDF', S.wholePdf, 'Show the PDF sheet just as it is, with its notes and size table · the pieces hide meanwhile', v => setWholePdf(v));
+      allRow(body, ownLines, 'own');
       addPieces(body, ownLines);
       const left = S.pieces.filter(p => !sepOf(p)).length;
       if (left && !S.wholePdf) { const n = document.createElement('p'); n.className = 'note'; n.textContent = left + (left > 1 ? ' pieces have' : ' piece has') + ' no outline to follow, so ' + (left > 1 ? 'they show' : 'it shows') + ' on the sheet.'; body.append(n); }
@@ -6675,24 +6710,27 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
       const bt = document.createElement('div'); bt.className = 'row2 obtns';
       ['editPiecesBtn', 'asmOpen2'].forEach(q => { const b = keptEl(q); if (b) bt.append(b); });
       body.append(bt);
+      if (S.pieces.length) check(body, 'Show whole PDF', S.wholePdf, 'Show the PDF sheet just as it is, with its notes and size table · the pieces hide meanwhile', v => setWholePdf(v));
     }
     // 2. the other pattern of the project
     if (otherRec) {
       const title = otherRec.slot === 'lining' ? 'Lining' : 'Main fabric', on = compOn(otherRec);
       const body = head('other', title, [otherRec.name.replace(/\.pdf$/i, ''), cutOf(otherPcs)].filter(Boolean).join(' · '), on, () => { if (on) companionOff(otherRec); else companionOn(otherRec); });
       if (!otherAll.length) { const n = document.createElement('p'); n.className = 'note'; n.textContent = 'Not on the mat · tap the eye to lay it over this one.'; body.append(n); }
-      else if (otherPcs.length) { check(body, 'Show whole PDF', compWhole(otherRec), 'Show this PDF sheet just as it is · its pieces hide meanwhile', v => setCompWhole(otherRec, v)); addPieces(body, otherPcs); }
+      else if (otherPcs.length) { allRow(body, otherPcs, 'other', otherRec); addPieces(body, otherPcs); }
       else addPieces(body, otherAll);
       const bt = document.createElement('div'); bt.className = 'row2 obtns';
       const b = document.createElement('button'); b.type = 'button'; b.className = 'btn slim'; b.textContent = 'Mark pieces on the ' + title.toLowerCase();
       b.title = 'Switch to the ' + title.toLowerCase() + ' to mark or edit its pieces · the mat stays as it is';
       b.addEventListener('click', () => switchPattern(otherRec.id).then(() => renderPatternList()));
       bt.append(b); body.append(bt);
+      if (otherPcs.length) check(body, 'Show whole PDF', compWhole(otherRec), 'Show this PDF sheet just as it is · its pieces hide meanwhile', v => setCompWhole(otherRec, v));
     }
     // 3. brought in from other patterns
     const bring = keptEl('bringBtn');
     if (miscLines.length) {
       const body = head('misc', 'Miscellaneous', miscLines.length + ' from other patterns', !S.miscHidden, () => { S.miscHidden = !S.miscHidden; if (S.miscHidden && selLine() && lineOff(selLine())) S.selId = null; drawLines(); renderLineList(); record(); });
+      allRow(body, miscLines.filter(l => l.pc), 'misc');
       addPieces(body, miscLines);
       if (bring) body.append(bring);
     } else if (bring) $('#lineList').after(bring);
