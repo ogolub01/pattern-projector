@@ -22,6 +22,9 @@
 }
 html, body { height: 100%; }
 body { background: var(--pbg); color: var(--ink); font-family: var(--mono); font-size: 13px; overflow: hidden; }
+/* nothing on the app's screen is text to select: dragging across the panel or toolbox (Safari) used to select it all, turning the screen blue */
+body { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+input, textarea, [contenteditable="true"] { -webkit-user-select: text; user-select: text; }
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
 button, input { font: inherit; color: inherit; }
@@ -6359,9 +6362,11 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
     if (fingers.size === 2 && e.pointerType === 'touch') { if (G) { G.abort(); G = null; } startPinch(); return; }
     if (fingers.size > 1 || pinch) return;
     flushRecord();
+    try { const sel = getSelection(); if (sel && sel.rangeCount) sel.removeAllRanges(); } catch {}
     G = startGesture(e);
   });
   document.addEventListener('pointerdown', () => flushRecord(), true);
+  document.addEventListener('selectstart', e => { const t = e.target; if (t && t.closest && t.closest('input, textarea, [contenteditable="true"]')) return; e.preventDefault(); });
   stage.addEventListener('pointermove', e => {
     const f = fingers.get(e.pointerId); if (!f) return;
     f.x = e.clientX; f.y = e.clientY;
