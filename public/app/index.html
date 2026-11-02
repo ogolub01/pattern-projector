@@ -314,7 +314,8 @@ body.bare #toolbox, body.bare #movePadBox, body.bare #hHint, body.bare #lineBar,
 
 .check { display: flex; align-items: center; justify-content: space-between; min-height: 40px; gap: 10px; font-size: 12px; border-bottom: 1px solid #1E1D1B; cursor: pointer; }
 .check input { width: 20px; height: 20px; accent-color: var(--brass); flex-shrink: 0; }
-.filebtn { display: flex; align-items: center; gap: 10px; border: 1px dashed #55534D; min-height: 48px; padding: 6px 12px; cursor: pointer; font-size: 11px; color: var(--mute); }
+.vhid { position: absolute !important; width: 1px !important; height: 1px !important; opacity: 0 !important; overflow: hidden; pointer-events: none; clip-path: inset(50%); }
+.filebtn { position: relative; display: flex; align-items: center; gap: 10px; border: 1px dashed #55534D; min-height: 48px; padding: 6px 12px; cursor: pointer; font-size: 11px; color: var(--mute); }
 .filebtn:hover, .filebtn.over { border-color: var(--brass); color: var(--ink); }
 .filebtn b { font-weight: 500; color: var(--ink); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 .filebtn span { margin-left: auto; letter-spacing: .12em; font-size: 10px; flex-shrink: 0; }
@@ -348,6 +349,26 @@ kbd { font-family: var(--mono); border: 1px solid var(--line); padding: 1px 5px;
 .subtools { display: flex; flex-direction: column; gap: 8px; border-left: 1px solid var(--brass); padding-left: 12px; }
 .subtools .seg .btn { height: 34px; font-size: 10px; }
 .litem { border: 1px solid var(--line); }
+/* v150: Objects in sections (Main fabric, Lining, Miscellaneous, Lines and marks) */
+.osec { border-top: 1px solid var(--line); }
+.osec:first-child { border-top: none; }
+.ohead { display: grid; grid-template-columns: 26px auto minmax(0,1fr) 14px; align-items: center; gap: 8px; padding: 8px 2px 6px 8px; cursor: pointer; user-select: none; -webkit-user-select: none; }
+.ohead b { font-family: var(--serif); font-style: italic; font-weight: 500; font-size: 17px; color: var(--ink); white-space: nowrap; }
+.ohead .ometa { font-size: 10px; letter-spacing: .06em; color: var(--mute); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.ohead .oarr { color: var(--mute); font-size: 11px; text-align: center; }
+.ohead:focus-visible { outline: 1px solid var(--brass); outline-offset: -1px; }
+.obody { display: flex; flex-direction: column; gap: 6px; padding: 0 0 10px; }
+.obody[hidden] { display: none; }
+.osec.off .obody .litem { opacity: .5; }
+.obody .note { margin: 2px 0; }
+.owhole { border: 1px dashed var(--line); padding: 6px 8px; }
+.obtns { margin-top: 2px; }
+.obtns .btn { flex: 1; }
+.litem.sub { margin-left: 26px; border-style: dashed; }
+.litem.masked { opacity: .5; }
+.lrow.prow2 { grid-template-columns: 26px 18px 24px 26px minmax(0,1fr) 34px; }
+.lcut { width: 16px; height: 16px; margin: 0; accent-color: var(--brass); cursor: pointer; }
+.litem.cut .lrow input[type="text"] { color: var(--faint); text-decoration: line-through; }
 .litem.sel { border-color: var(--brass); }
 .lrow { display: grid; grid-template-columns: 26px 24px 26px minmax(0,1fr) 34px; align-items: center; gap: 6px; padding: 2px 2px 0 8px; cursor: pointer; }
 .leye { width: 28px; height: 28px; border: none; background: transparent; color: var(--faint); cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0; }
@@ -374,7 +395,7 @@ kbd { font-family: var(--mono); border: 1px solid var(--line); padding: 1px 5px;
 .ext button[aria-pressed="true"] { color: var(--brass); border-color: var(--brass); }
 .srow { display: grid; grid-template-columns: 34px minmax(0,1fr) 34px; align-items: center; gap: 6px; border: 1px solid var(--line); padding: 4px 2px 4px 10px; cursor: pointer; background: transparent; text-align: left; }
 .srow:hover { border-color: var(--mute); }
-#fabBoxes .srow { min-height: 56px; }
+#fabBoxes .srow { min-height: 56px; grid-template-columns: minmax(0,1fr) 34px; }
 #fabBoxes .slot { font-size: 9.5px; letter-spacing: .16em; text-transform: uppercase; color: var(--mute); }
 #fabBoxes .srow.cur .slot { color: var(--brass); }
 .filebtn.addbox { width: 100%; background: transparent; font: inherit; color: var(--mute); }
@@ -762,7 +783,7 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
         <svg class="ic-open" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M12 16V4M7 9l5-5 5 5M4 20h16"/></svg><svg class="ic-folder" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M3 6.5V19h18V8.5h-9.5L9.5 6H3z"/><path d="M3 10h18"/></svg>
         <b id="fileName">Add a pattern PDF</b>
         <span id="dropAct">OPEN PDF</span>
-        <input type="file" id="pdfInput" accept="application/pdf" hidden>
+        <input type="file" id="pdfInput" class="vhid" accept="application/pdf,.pdf" tabindex="-1" aria-hidden="true">
       </label>
       <div class="group" id="fabBoxes" style="gap:6px" hidden></div>
       <div class="row2" id="pageRow" hidden>
@@ -825,7 +846,7 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
       </div>
     </details>
 
-    <details class="fold" data-fold="piecesv2">
+    <details class="fold" data-fold="piecesv2" hidden data-gone="1">
       <summary>Pattern pieces <span class="count" id="pieceCount">none yet</span></summary>
       <div class="body">
         <p class="note" id="pieceHint">No pieces marked yet. Mark them once and you can project them one at a time and tick them off as you cut.</p>
@@ -838,7 +859,7 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
           </div>
         </div>
         <div id="pieceList" class="group" style="gap:6px"></div>
-        <div class="group" id="pieceOpts2" hidden>
+        <div class="group" id="pieceOpts2" hidden style="margin-top:8px">
           <label class="check" for="dimCutChk"><span>Dim pieces already cut</span><input type="checkbox" id="dimCutChk" checked></label>
         </div>
         <div class="group" id="pieceManual">
@@ -1987,6 +2008,8 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
     dock: 'left', winW: innerWidth, winH: innerHeight, setupName: null, accuracy: null,
     checks: (() => { try { return JSON.parse(localStorage.getItem('pp_checks')) || {}; } catch { return {}; } })()
   };
+  // v150: no one-piece view any more (every piece has its own eye in Objects)
+  Object.defineProperty(S, 'oneAt', { get: () => false, set: () => {}, enumerable: true });
 
   // phones get the most minimal Notch: the mat, its corners, the mat size and Open PDF (v136)
   const PHONE = matchMedia('(pointer: coarse) and (max-width: 600px), (pointer: coarse) and (max-height: 500px)').matches;
@@ -2416,7 +2439,7 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
     const all = S.draft ? [...S.lines, S.draft] : S.lines;
     const big = (S.w + S.h) * 6;
     all.forEach(l => {
-      if (l.hidden || (S.mainHidden && l.pc && !l.companion && l.pc.file === S.fileName)) return;
+      if (lineOff(l)) return;
       const isSel = selSet.has(l.id), c = colorOf(l), w = lw() * (isSel ? 1.9 : 1.3) * (l.wm || 1);
       g.strokeStyle = c; g.fillStyle = c;
       if (l.pc) { drawPc(g, l, c, w, isSel, M); return; }
@@ -2545,10 +2568,10 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
     $('#lineEmpty').hidden = S.lines.length > 0; $('#lineGlobal').hidden = S.lines.length === 0; if (typeof syncLabelsBtn === 'function') syncLabelsBtn();
     { const n = S.lines.filter(l => !isMarkStroke(l) || firstOfGroup(l) === l).length; $('#lineCount').textContent = n ? n : ''; }
     const selG = selLine() && selLine().group;
-    S.lines.forEach(l => {
-      if (isMarkStroke(l) && firstOfGroup(l) !== l) return;
-      const item = document.createElement('div'); item.className = 'litem' + (l.id === S.selId || (isMarkStroke(l) && l.group === selG) ? ' sel' : '');
-      const row = document.createElement('div'); row.className = 'lrow';
+    const mkItem = (l, kind) => {
+      const isPiece = kind === 'piece', strip = kind === 'piece' && l.companion ? /^(Lining|Main) · /.exec(l.name) : null, prefix = strip ? strip[0] : '';
+      const item = document.createElement('div'); item.className = 'litem' + (kind === 'sub' ? ' sub' : '') + (isPiece ? ' piece' : '') + (l.cut && isPiece ? ' cut' : '') + (l.id === S.selId || (isMarkStroke(l) && l.group === selG) ? ' sel' : '') + (lineOff(l) && !l.hidden ? ' masked' : '');
+      const row = document.createElement('div'); row.className = 'lrow' + (isPiece ? ' prow2' : '');
       const eye = document.createElement('button'); eye.type = 'button'; eye.className = 'leye' + (l.hidden ? '' : ' on');
       eye.title = l.hidden ? 'Show on the mat' : 'Hide on the mat'; eye.setAttribute('aria-label', eye.title + ': ' + l.name); eye.setAttribute('aria-pressed', String(!l.hidden));
       eye.innerHTML = l.hidden ? '<svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12z"/><circle cx="12" cy="12" r="3"/><path d="M4 20L20 4"/></svg>' : '<svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>';
@@ -2565,15 +2588,28 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
       ci.addEventListener('click', e => e.stopPropagation());
       ci.addEventListener('input', () => { const grp = l.group ? S.lines.filter(x => x.group === l.group && (x === l || isMarkStroke(l))) : [l]; grp.forEach(x => { x.color = 'custom'; x.hex = ci.value; }); dot.style.background = ci.value; drawLines(); record(); });
       sw.append(dot, ci);
-      const inp = document.createElement('input'); inp.type = 'text'; inp.value = l.name; inp.id = 'name-' + l.id;
+      const inp = document.createElement('input'); inp.type = 'text'; inp.value = l.name.slice(prefix.length); inp.id = 'name-' + l.id;
       inp.setAttribute('aria-label', 'Name of ' + l.name);
-      inp.addEventListener('input', () => { (isMarkStroke(l) ? S.lines.filter(x => x.group === l.group) : [l]).forEach(x => x.name = inp.value); drawLines(); record(); });
+      inp.addEventListener('input', () => {
+        (isMarkStroke(l) ? S.lines.filter(x => x.group === l.group) : [l]).forEach(x => x.name = prefix + inp.value);
+        // a piece's name is also the name in Mark pieces
+        if (isPiece && ownPc(l) && !l.pc.dup) { const p = S.pieces.find(q => q.id === l.pc.pid); if (p) p.name = inp.value; }
+        drawLines(); record();
+      });
+      // cut tick (pieces only): one tick for the piece, wherever it shows
+      let cb = null;
+      if (isPiece) {
+        cb = document.createElement('input'); cb.type = 'checkbox'; cb.className = 'lcut'; cb.checked = !!l.cut; cb.title = l.cut ? 'Cut · tap to untick' : 'Tick when cut';
+        cb.setAttribute('aria-label', 'Cut ' + l.name);
+        cb.addEventListener('click', e => e.stopPropagation());
+        cb.addEventListener('change', () => { setCut(l, cb.checked); });
+      }
       const more = document.createElement('button'); more.type = 'button'; more.className = 'more';
       more.textContent = '⋯'; more.setAttribute('aria-label', 'Options for ' + l.name); more.setAttribute('aria-haspopup', 'menu');
       more.addEventListener('click', e => { e.stopPropagation(); const r = more.getBoundingClientRect(); toggleMenu(l.id, () => lineMenu(l, r.right, r.bottom + 4, true)); });
       row.addEventListener('click', e => { if (S.pick) { togglePick(l); renderLineList(); return; } selectLine(l.id, e.target === inp); });
       if (S.pick && S.pick.has(l.id)) item.classList.add('sel');
-      row.append(eye, lk, sw, inp, more);
+      if (cb) row.append(eye, cb, lk, sw, inp, more); else row.append(eye, lk, sw, inp, more);
       const opts = document.createElement('div'); opts.className = 'lopts';
       const mk = (label, pressed, title, fn) => {
         const b = document.createElement('button'); b.type = 'button'; b.className = 'ltog'; b.textContent = label; b.title = title;
@@ -2581,8 +2617,10 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
       };
       if (S.foldId === l.id) { const f = document.createElement('span'); f.className = 'lfold'; f.textContent = 'FOLD'; opts.append(f); }
       if (l.group) { const f = document.createElement('span'); f.className = 'lgroup'; f.textContent = 'GROUP ' + groupNo(l.group); opts.append(f); }
-      item.append(row); if (opts.childNodes.length) item.append(opts); box.append(item);
-    });
+      item.append(row); if (opts.childNodes.length) item.append(opts);
+      return item;
+    };
+    buildObjectSections(box, mkItem);
     const sl = selLine(), ref = refLine();
     $('#selActions').hidden = !sl;
     if (sl) {
@@ -2659,6 +2697,7 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
     l.extend = 'none'; l.ruler = !!S.ruler || !!S.rulerPen || !!S.penRuler; l.noLabel = true;
     if (S.base) pin(l, true);
     S.lines.push(l);
+    try { adoptDrawing(l); } catch (err) { console.error(err); }
     S.selId = l.id;
     renderLineList();
   }
@@ -3244,7 +3283,7 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
     if (named) bits.push(`${named} named from the pattern`);
     if (squares) bits.push(`skipped ${squares} test square${squares > 1 ? 's' : ''}`);
     if (labels) bits.push(`skipped ${labels} label${labels > 1 ? 's' : ''}`);
-    toast(bits.join(' · ') + `. Showing "${pName(S.pieces[0])}" — untick One piece at a time to see them all.`);
+    toast(bits.join(' · ') + '. Each one is its own object in Objects.');
   }
   function piecePath(g, p) {
     g.beginPath();
@@ -3305,7 +3344,7 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
     const M = P(), bg = rgb(M.bg), line = rgb(M.line);
     g.save(); g.scale(K, K); g.lineJoin = 'round';
     const cur = curPiece(), W = pieceC.width / K, Hh = pieceC.height / K;
-    const one = !!(S.oneAt && cur), fold = foldPoly(), lifted = S.lines.filter(l => l.pc && !l.companion && l.pc.kind !== 'sheet' && l.pc.file === S.fileName && l.pc.pts0), solo = one || !!fold || lifted.length > 0;
+    const one = !!(S.oneAt && cur), fold = foldPoly(), lifted = S.wholePdf ? [] : S.lines.filter(l => l.pc && !l.companion && l.pc.kind !== 'sheet' && l.pc.file === S.fileName && l.pc.pts0), solo = one || !!fold || lifted.length > 0;
     pdfC.style.visibility = solo ? 'hidden' : '';
     if (solo) {
       // draw the pattern into this layer, keeping only what should show; everything else stays empty.
@@ -4123,7 +4162,7 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
     if (!S.pieces.length) S.oneAt = false;
     $('#oneAtChk').checked = S.oneAt;
     renderPieces(); drawPieces(); record();
-    if (keep && S.pieces.length) { const n = S.pieces.length; toast(`${n} piece${n > 1 ? 's' : ''} ready · Pattern pieces shows them, one at a time if you like`); }
+    if (keep && S.pieces.length) { const n = S.pieces.length; toast(`${n} piece${n > 1 ? 's' : ''} ready · each is its own object now · the eyes in Objects choose what shows`); }
   }
   $('#pwDone').addEventListener('click', () => closePieces(true));
   function pwCancel() {
@@ -4443,7 +4482,7 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
     const box = $('#pieceList'); box.textContent = '';
     const n = S.pieces.length, cut = S.pieces.filter(p => p.cut).length;
     $('#pieceCount').textContent = n ? `${cut} / ${n} cut` : 'none yet';
-    $('#pieceOpts').hidden = $('#pieceOpts2').hidden = n === 0;
+    $('#pieceOpts').hidden = n === 0;
     $('#pieceHint').hidden = n > 0;
     { const eb = $('#editPiecesBtn'); if (eb) eb.textContent = n ? 'Edit pieces' : 'Mark pieces'; }
     S.pieces.forEach((p, i) => {
@@ -4550,6 +4589,8 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
   async function loadPdf(file, rec, wantSlot, switching) {
     if (!window.pdfjsLib) { toast('The PDF reader did not load. Check your connection and reload.'); return false; }
     await saveNow();                          // keep the pattern we're leaving exactly as it was
+    // v150: its Undo steps are kept too, for when it's opened again (switching between main fabric and lining)
+    if (SAVE.id) { flushRecord(); HISTS.set(SAVE.id, HIST.undo.slice()); }
     SAVE.ready = false; SAVE.id = null;
     try {
       pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
@@ -4579,7 +4620,7 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
           restore(rec.state);
           S.pivotWhole = rec.pivotWhole || null; S.flipWhole = rec.flipWhole || null;
         } catch (err) { console.error(err); toast('Could not bring back all your work on this pattern'); }
-        HIST.undo = []; HIST.redo = []; HIST.last = snapSafe(); syncUndoButtons();
+        HIST.undo = (HISTS.get(id) || []).slice(); HIST.redo = []; HIST.last = snapSafe(); syncUndoButtons();
       }
       renderPieces(); renderLineList();
       const slot = (rec && rec.slot) || wantSlot || (PROJ.main && PROJ.main.id !== id ? 'lining' : 'main');
@@ -4644,7 +4685,8 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
     toast('Could not save this pattern on this device · the browser may be out of space');
   }
   function scheduleSave() { if (!SAVE.ready) return; clearTimeout(SAVE.timer); SAVE.timer = setTimeout(saveNow, 900); }
-  async function saveNow() {
+  function saveNow() { const p = saveNow0(); SAVE.busy = p; return p; }
+  async function saveNow0() {
     clearTimeout(SAVE.timer);
     if (!SAVE.ready || !SAVE.id || !S.pdf) return;
     const state = snapSafe(); if (!state) return;
@@ -4700,20 +4742,32 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
      The pattern that's open is drawn as always. The other one in the project (lining, or main) can be shown on top:
      its separated pieces if it has any, otherwise its whole sheet, both where they were when it was last open, in
      red and see-through. An eye on each row in Project shows or hides it. */
-  async function companionOn(rec, fresh) {
+  async function companionOn(rec, fresh, opt) {
+    opt = opt || {};
     if (fresh) S.lines = S.lines.filter(l => l.companion !== rec.id);
     const have = S.lines.filter(l => l.companion === rec.id);
-    if (have.length) { have.forEach(l => { delete l.hidden; }); drawLines(); renderLineList(); renderPatternList(); record(); return; }
+    // its header eye: what was showing under it comes back (each piece keeps its own eye)
+    if (have.length && !opt.sheetOnly) { have.forEach(l => { delete l.mHid; }); if (have.every(l => l.hidden)) have.forEach(l => { delete l.hidden; }); drawLines(); renderLineList(); renderPatternList(); record(); return; }
     let st = null; try { st = JSON.parse(rec.state); } catch {}
     let mk = null; try { mk = await DB.get('work', rec.id + '#m'); } catch {}
     const marks = (mk && mk.marks) || {}, label = rec.slot === 'lining' ? 'Lining' : 'Main';
-    const pcs = st && Array.isArray(st.lines) ? st.lines.filter(l => l.pc && !l.companion && l.pc.file === rec.name) : [];
-    const sheetShown = !(st && (st.sheet || st.mainHidden));
-    if (pcs.length) {
+    const pcs = st && Array.isArray(st.lines) ? st.lines.filter(l => l.pc && !l.companion && l.pc.file === rec.name && l.pc.kind !== 'sheet') : [];
+    const whole = !!opt.sheetOnly || !!(st && st.wholePdf && pcs.length);
+    const sheetShown = whole || !(st && (st.sheet || st.mainHidden));
+    if (pcs.length && !opt.sheetOnly) {
       pcs.forEach(src => {
         const c = JSON.parse(JSON.stringify(src)); delete c._fit; delete c.local; delete c.screen; delete c.pinned;
-        c.id = newPcId(); c.companion = rec.id; c.name = label + ' · ' + src.name;
+        c.id = newPcId(); c.src = src.id; c.companion = rec.id; c.name = label + ' · ' + src.name;
+        if (whole) c.wHid = true;
         if (marks[src.id]) MARKS.set(c.id, marks[src.id]);
+        S.lines.push(c);
+      });
+      // drawings on its pieces come along, still on them
+      const map = new Map(); S.lines.forEach(c => { if (c.companion === rec.id && c.src && c.pc) map.set(c.src, c.id); });
+      st.lines.filter(l => !l.pc && !l.companion && l.owner && map.has(l.owner) && !S.lines.some(x => x.id === l.id || x.src === l.id)).forEach(src => {
+        const c = JSON.parse(JSON.stringify(src)); delete c.local; delete c.screen; delete c.pinned; delete c.rel; delete c.group; delete c.mark;
+        c.id = newPcId(); c.src = src.id; c.companion = rec.id; c.owner = map.get(src.owner);
+        if (whole) c.wHid = true;
         S.lines.push(c);
       });
     }
@@ -4727,7 +4781,7 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
         const W = vp.width, H = vp.height, rot = st ? st.rot || 0 : 0, flip = st ? !!st.flip : false, pc = st && st.pos ? st.pos : [S.w / 2, S.h / 2];
         const a = rad(rot), co = Math.cos(a), si = Math.sin(a);
         const place = q => { let x = q[0] - W / 2, y = q[1] - H / 2; if (flip) x = -x; return [pc[0] + x * co - y * si, pc[1] + x * si + y * co]; };
-        let one = st && st.oneAt && Array.isArray(st.pieces) ? st.pieces[st.curPiece] : null;
+        let one = !whole && st && st.oneAt && Array.isArray(st.pieces) ? st.pieces[st.curPiece] : null;
         if (one && pcs.some(x => x.pc.pid === one.id)) one = 'lifted';
         let outline = null;
         if (one === 'lifted') outline = null;
@@ -4746,7 +4800,7 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
           const frame = [[0, 0], [W, 0], [W, H], [0, H], [0, 0]];
           const l = { id: newPcId(), type: 'free', name: label + ' · ' + rec.name.replace(/\.pdf$/i, ''), pts: frame.map(place), companion: rec.id,
             pc: { pid: 'whole_' + rec.id, file: rec.name, kind: 'sheet', pts0: frame }, color: 'pattern', dash: 'dash', wm: 1, extend: 'none', ruler: false, noLabel: false, rot };
-          const holes = pcs.map(x => x.pc.pts0).filter(Boolean), out = [];
+          const holes = whole ? [] : pcs.map(x => x.pc.pts0).filter(Boolean), out = [];
           const nearEdge = (h, q) => { for (let i = 0, j = h.length - 1; i < h.length; j = i++) { const a = h[j], b = h[i], dx = b[0] - a[0], dy = b[1] - a[1], L2 = dx * dx + dy * dy || 1; let t = ((q[0] - a[0]) * dx + (q[1] - a[1]) * dy) / L2; t = Math.max(0, Math.min(1, t)); if (Math.hypot(a[0] + dx * t - q[0], a[1] + dy * t - q[1]) < 1.5) return true; } return false; };
           const boxes = holes.map(h => h.reduce((m, q) => [Math.min(m[0], q[0]) - 2, Math.min(m[1], q[1]) - 2, Math.max(m[2], q[0]) + 2, Math.max(m[3], q[1]) + 2], [Infinity, Infinity, -Infinity, -Infinity]));
           const inHole = q => holes.some((h, k) => { const b = boxes[k]; return q[0] >= b[0] && q[1] >= b[1] && q[0] <= b[2] && q[1] <= b[3] && (NotchVec.inPoly(h, q[0], q[1]) || nearEdge(h, q)); });
@@ -4757,10 +4811,10 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
       } catch (err) { console.error(err); toast('Could not draw that PDF'); return; }
     }
     renderLineList(); drawLines(); saveMarks(); record(); renderPatternList();
-    toast(label + ' showing on the mat · drag a piece to move it, the round handle turns it');
+    if (!opt.sheetOnly) toast(label + ' showing on the mat · drag a piece to move it, the round handle turns it');
   }
-  function companionOff(rec) { S.lines.forEach(l => { if (l.companion === rec.id) l.hidden = true; }); if (selLine() && selLine().hidden) S.selId = null; drawLines(); renderLineList(); renderPatternList(); record(); }
-  const companionShown = rec => S.lines.some(l => l.companion === rec.id && !l.hidden);
+  function companionOff(rec) { S.lines.forEach(l => { if (l.companion === rec.id) l.mHid = true; }); if (selLine() && lineOff(selLine())) S.selId = null; drawLines(); renderLineList(); renderPatternList(); record(); }
+  const companionShown = rec => S.lines.some(l => l.companion === rec.id && !l.mHid && !l.hidden);
   // the open pattern itself: the sheet and its own pieces
   function setMainHidden(v) { S.mainHidden = !!v; if (v && selLine() && selLine().pc && !selLine().companion) S.selId = null; drawPieces(); drawLines(); updateMirror(); renderPatternList(); record(); }
 
@@ -4769,6 +4823,7 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
      i.e. which one Mark pieces works on. */
   async function switchPattern(id) {
     const fromId = SAVE.id, fromName = S.fileName, fromRec = [PROJ.main, PROJ.lining].find(r => r && r.id === fromId);
+    let reopened = new Map();
     if (!fromRec) return reopenPattern(id);
     await saveNow();
     const carried = JSON.parse(JSON.stringify(S.lines)), marks = new Map(); S.lines.forEach(l => { if (MARKS.has(l.id)) marks.set(l.id, MARKS.get(l.id)); });
@@ -4790,13 +4845,21 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
       }
       // its own pieces: where they were on the mat a moment ago
       own.forEach(o => { const c = cB.find(x => x.pc && x.pc.pid === o.pc.pid && x.pc.kind !== 'sheet'); if (!c) return;
-        o.pts = c.pts; o.rot = c.rot; ['color', 'hex', 'dash', 'wm', 'group', 'noLabel'].forEach(k => { if (c[k] !== undefined) o[k] = c[k]; else delete o[k]; });
-        if (c.hidden) o.hidden = true; else delete o.hidden; o._fit = null; if (o.pinned) pin(o, true); });
-      S.mainHidden = cB.length > 0 && cB.every(x => x.hidden);
+        o.pts = c.pts; o.rot = c.rot; ['color', 'hex', 'dash', 'wm', 'group', 'noLabel', 'cut', 'locked'].forEach(k => { if (c[k] !== undefined) o[k] = c[k]; else delete o[k]; });
+        if (c.hidden) o.hidden = true; else delete o.hidden; o._fit = null; if (o.pinned) pin(o, true);
+        if (!o.pc.dup) { const p = S.pieces.find(q => q.id === o.pc.pid); if (p) p.cut = !!o.cut; } });
+      S.mainHidden = cB.length > 0 && cB.some(x => x.mHid);
+      S.wholePdf = cB.some(x => x.wHid);
+      // its own drawings that weren't on the mat (they stay where their copies were moved to)
+      const carriedIds = new Set(carried.map(x => x.id)); reopened = new Map(S.lines.map(x => [x.id, x]));
+      const ownDraw = S.lines.filter(l => !l.pc && !l.companion && !carriedIds.has(l.id));
+      ownDraw.forEach(l => { const c = cB.find(x => !x.pc && x.src === l.id); if (!c) return;
+        ['a', 'b', 'pts', 'nodes', 'rot', 'color', 'hex', 'dash', 'wm', 'extend', 'noLabel', 'hidden', 'name'].forEach(k => { if (c[k] !== undefined) l[k] = JSON.parse(JSON.stringify(c[k])); else delete l[k]; });
+        if (l.pinned) pin(l, true); });
       // everything else stays as it was: drawn lines, pieces from other PDFs
       const rest = carried.filter(l => !l.companion && !(l.pc && l.pc.file === fromName));
       rest.forEach(l => { delete l._fit; if (marks.has(l.id)) MARKS.set(l.id, marks.get(l.id)); if (l.pinned && !l.screen) pin(l, true); });
-      S.lines = own.concat(rest);
+      S.lines = own.concat(ownDraw, rest);
       if (S.selId && !S.lines.some(l => l.id === S.selId)) S.selId = null;
     } catch (err) { console.error(err); }
     HIST.restoring = false;
@@ -4804,8 +4867,21 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
     const fresh = await DB.get('work', fromId).catch(() => null);
     await companionOn(fresh || fromRec, true);
     if (fromHidden) companionOff(fromRec);
+    // drawings stay on their pieces: the piece they belong to may now be a copy, or the original again
+    try {
+      const was = new Map(carried.map(x => [x.id, x]));
+      S.lines.forEach(l => {
+        if (!l.owner || l.pc || S.lines.some(x => x.id === l.owner)) return;
+        const old = was.get(l.owner) || reopened.get(l.owner);
+        const n = (old && old.pc && old.companion && (S.lines.find(x => x.pc && !x.companion && x.pc.pid === old.pc.pid && x.pc.file === old.pc.file) || (old.src && S.lines.find(x => x.companion && x.pc && x.src === old.src))))
+          || S.lines.find(x => x.companion && x.pc && x.src === l.owner);
+        if (n) l.owner = n.id; else delete l.owner;
+      });
+    } catch (err) { console.error(err); }
     setView(view.s, view.tx, view.ty);
     renderLineList(); renderPieces(); drawPieces(); drawLines(); updateMirror(); record(); saveMarks(); renderPatternList();
+    // switching isn't a step of its own: Undo goes back to the last thing done on this pattern
+    clearTimeout(HIST.timer); HIST.timer = null; { const now = snapSafe(); if (now) HIST.last = now; } syncUndoButtons();
     toast('Now working on the ' + (PROJ.lining && toId === PROJ.lining.id ? 'lining' : 'main fabric') + ' · the mat stays as it was');
     return true;
   }
@@ -4835,7 +4911,7 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
       eye.setAttribute('aria-label', eye.title);
       eye.innerHTML = shown ? '<svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>' : '<svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12z"/><circle cx="12" cy="12" r="3"/><path d="M4 20L20 4"/></svg>';
       eye.addEventListener('click', e => { e.stopPropagation(); if (cur) setMainHidden(!S.mainHidden); else if (shown) companionOff(r); else companionOn(r); });
-      el.append(eye, sn);
+      el.append(sn);
       if (label === 'Lining') {
         const more = document.createElement('button'); more.type = 'button'; more.className = 'more'; more.textContent = '⋯'; more.setAttribute('aria-label', 'Lining options');
         more.addEventListener('click', e => { e.stopPropagation(); const rc = more.getBoundingClientRect(); toggleMenu('lining', () => liningMenu(r, rc.right, rc.bottom + 4)); });
@@ -4882,9 +4958,11 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
     ], x, y, true, 'lining');
   }
   // open the file picker for one space; the picker must open straight from a tap
-  function pickFile(mode) { PROJ.mode = mode; PROJ.ok = true; const inp = $('#pdfInput'); inp.value = ''; inp.click(); setTimeout(() => { PROJ.ok = false; }, 1000); }
+  function pickFile(mode) { PROJ.mode = mode; PROJ.ok = true; const inp = $('#pdfInput'); inp.value = ''; try { if (inp.showPicker) inp.showPicker(); else inp.click(); } catch (err) { inp.click(); } setTimeout(() => { PROJ.ok = false; }, 1000); }
   async function startNewProject(file) {
     clearTimeout(SAVE.timer); SAVE.ready = false; SAVE.id = null; SAVE.lastSig = '';
+    try { await SAVE.busy; } catch {}
+    HISTS.clear();
     try { await clearWorkKeepShelf(); await DB.clear('files'); } catch {}
     PROJ.main = PROJ.lining = null; pset('pp_last', '');
     await loadPdf(file, null, 'main');
@@ -4919,7 +4997,7 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
 
   function askNewProject(file) {
     PROJ.pending = file || null;
-    const parts = [PROJ.main, PROJ.lining].filter(Boolean).map(r => r.name.replace(/\.pdf$/i, ''));
+    const parts = [PROJ.main, PROJ.lining].filter(r => r && r.name).map(r => r.name.replace(/\.pdf$/i, ''));
     $('#newAskNote').textContent = (parts.length ? parts.join(' and ') : 'Your current project') + ' will be gone from this device, with marked pieces, lines and cut ticks.';
     $('#newAskGo').textContent = file ? 'Start new project' : 'Start new project · choose PDF';
     $('#newAsk').hidden = false; $('#newAskCancel').focus();
@@ -5487,7 +5565,7 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
   function movePattern(dx, dy) {
     if (lockedSay()) return;
     const sl = S.step === 'project' ? selLine() : null;
-    if (sl && sl.pc) { if (objLockedSay(sl)) return; applyObjs(snapObjs(selMembers()), q => [q[0] + dx, q[1] + dy]); drawLines(); record(); return; }
+    if (sl && sl.pc) { if (objLockedSay(sl)) return; applyObjs(snapObjs(xfGroup(sl)), q => [q[0] + dx, q[1] + dy]); drawLines(); record(); return; }
     applyObjs(snapObjs(freeObjs()), q => [q[0] + dx, q[1] + dy]);
     S.pc.x += dx; S.pc.y += dy; placePattern();
   }
@@ -5879,6 +5957,45 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
         abort: () => { S.draft = null; drawLines(); }
       };
     }
+    // v150: parallel / 90° / 45° to the selected line: a click places a full-length line through that spot (drag to
+    // slide it into place first); Ctrl + drag on a computer, or press and hold then drag on a tablet, draws a short one
+    const relRef = S.lmode !== 'free' ? refLine() : null;
+    if (relRef) {
+      const root = linkRoot(relRef) || relRef, touch = e.pointerType !== 'mouse', sx = e.clientX, sy = e.clientY;
+      let short = !!(e.ctrlKey || e.metaKey), moved = false;
+      const dir = () => {
+        let u = unit(root.a, root.b);
+        if (S.lmode === 'sq') u = [-u[1], u[0]];
+        else if (S.lmode === 'd45') { const k = Math.SQRT1_2; u = [(u[0] - u[1]) * k, (u[1] + u[0]) * k]; }
+        return u;
+      };
+      const full = q => { const u = dir(), L = 60; return { type: 'straight', a: [q[0] - u[0] * L, q[1] - u[1] * L], b: [q[0] + u[0] * L, q[1] + u[1] * L], extend: 'both' }; };
+      const a0 = snapped(p0, e);
+      S.draft = short ? { type: 'straight', a: a0, b: a0 } : full(a0); drawLines();
+      let hold = touch && !short ? setTimeout(() => { if (moved) return; short = true; S.draft = { type: 'straight', a: a0, b: a0 }; drawLines(); toast('Short line · drag to draw it'); }, 450) : null;
+      return {
+        move: ev => {
+          if (!moved && Math.hypot(ev.clientX - sx, ev.clientY - sy) > 6) { moved = true; clearTimeout(hold); }
+          if (!moved) return;
+          const q = snapped(toMm(ev.clientX, ev.clientY), ev);
+          if (short) S.draft.b = constrain(S.draft.a, q); else S.draft = full(q);
+          drawLines();
+        },
+        up: () => {
+          clearTimeout(hold);
+          const l = S.draft; S.draft = null; S.snapHint = null;
+          if (!l || (short && lenMm(l) <= 5)) { drawLines(); return; }
+          delete l.extend; l._ref = root; l._at = [(l.a[0] + l.b[0]) / 2, (l.a[1] + l.b[1]) / 2]; addLine(l);
+          if (!short) l.extend = 'both';
+          let ang = Math.round(norm180(lineAngle(l) - lineAngle(root)) / 45) * 45; if (ang >= 90) ang -= 180; if (ang < -90) ang += 180;
+          l.rel = { ref: root.id, ang, kind: ang === 0 ? 'par' : Math.abs(ang) === 90 ? 'sq' : 'd45' }; relFromGeom(l);
+          S.lmode = 'free'; pickTool('move', true);
+          renderLineList(); drawLines(); record(); if (typeof syncLineBar === 'function') syncLineBar();
+          if (!short) toast('Full-length line · the bar\'s Extend button makes it shorter');
+        },
+        abort: () => { clearTimeout(hold); S.draft = null; S.snapHint = null; drawLines(); }
+      };
+    }
     const a0 = snapped(p0, e);
     S.draft = { type: 'straight', a: a0, b: a0 };
     return {
@@ -6036,7 +6153,7 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
     const endTol = pxToMm(touch ? 30 : 24, [e.clientX, e.clientY]), bodyTol = pxToMm(touch ? 26 : 14, [e.clientX, e.clientY]);
     // the round handle above a selection turns it (and its whole group)
     if (S.tool === 'move' && S.rotHandle && Math.hypot(p0[0] - S.rotHandle.p[0], p0[1] - S.rotHandle.p[1]) < pxToMm(touch ? 30 : 18, [e.clientX, e.clientY])) {
-      const c = S.rotHandle.c, mem = selMembers(), snapL = mem.map(l => ({ l, cp: l.type === 'curve' ? curveFlat(l).map(q => q.slice()) : null, a: l.a && l.a.slice(), b: l.b && l.b.slice(), pts: l.pts && l.pts.map(q => q.slice()), rot0: l.rot || 0 })).sort((x, y) => (x.l.rel ? 1 : 0) - (y.l.rel ? 1 : 0));
+      const c = S.rotHandle.c, sl0 = selLine(), mem = sl0 && sl0.pc ? xfGroup(sl0) : selMembers(), snapL = mem.map(l => ({ l, cp: l.type === 'curve' ? curveFlat(l).map(q => q.slice()) : null, a: l.a && l.a.slice(), b: l.b && l.b.slice(), pts: l.pts && l.pts.map(q => q.slice()), rot0: l.rot || 0 })).sort((x, y) => (x.l.rel ? 1 : 0) - (y.l.rel ? 1 : 0));
       const a0 = Math.atan2(p0[1] - c[1], p0[0] - c[0]);
       const rot = (q, t) => { const dx = q[0] - c[0], dy = q[1] - c[1], co = Math.cos(t), si = Math.sin(t); return [c[0] + dx * co - dy * si, c[1] + dx * si + dy * co]; };
       const apply = t => snapL.forEach(o => { if (o.cp) curveSet(o.l, o.cp.map(q => rot(q, t))); else if (o.pts) o.l.pts = o.pts.map(q => rot(q, t)); else { o.l.a = rot(o.a, t); o.l.b = rot(o.b, t); } o.l.rot = Math.round(norm180(o.rot0 + t * 180 / Math.PI) * 100) / 100; lineCommit(o.l); }); syncRotUI();
@@ -6085,7 +6202,7 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
     // ends of straight lines (selected line first)
     let best = null, bd = endTol;
     const order = [selLine(), ...S.lines].filter(Boolean);
-    order.forEach(l => { if (l.type !== 'straight' || l.hidden || objLocked(l)) return; ['a', 'b'].forEach(end => { const d = Math.hypot(l[end][0] - p0[0], l[end][1] - p0[1]); if (d < bd) { bd = d; best = { l, end }; } }); });
+    order.forEach(l => { if (l.type !== 'straight' || lineOff(l) || objLocked(l)) return; ['a', 'b'].forEach(end => { const d = Math.hypot(l[end][0] - p0[0], l[end][1] - p0[1]); if (d < bd) { bd = d; best = { l, end }; } }); });
     const commit = lineCommit;
     if (best) {
       const { l, end } = best, orig = l[end].slice();
@@ -6117,7 +6234,7 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
       const sx0 = e.clientX, sy0 = e.clientY;
       return { move: ev => { if (Math.hypot(ev.clientX - sx0, ev.clientY - sy0) > 8) objLockedSay(hit); }, up() {}, abort() {} };
     }
-    const l = hit, grp = l.group ? S.lines.filter(x => x.group === l.group) : [l];
+    const l = hit, grp = l.pc ? xfGroup(l) : l.group ? S.lines.filter(x => x.group === l.group) : [l];
     const orig = grp.map(x => ({ x, cp: x.type === 'curve' ? curveFlat(x).map(q => q.slice()) : null, a: x.a && x.a.slice(), b: x.b && x.b.slice(), pts: x.pts && x.pts.map(q => q.slice()) })).sort((p, q) => (p.x.rel ? 1 : 0) - (q.x.rel ? 1 : 0));
     if (S.selId !== l.id && !(l.group && selLine() && selLine().group === l.group)) { S.selId = l.id; renderLineList(); drawLines(); }
     const sx = e.clientX, sy = e.clientY;
@@ -6168,8 +6285,10 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
       mm0: [(A[0] + B[0]) / 2, (A[1] + B[1]) / 2], angMm0: Math.atan2(B[1] - A[1], B[0] - A[0]),
       pc: { x: S.pc.x, y: S.pc.y }, rot: S.rot };
     const sl = S.step === 'project' ? selLine() : null;
-    if (!(sl && sl.pc && !sl.hidden && !objLocked(sl))) pinch.free = snapObjs(freeObjs());
-    if (sl && sl.pc && !sl.hidden && !objLocked(sl)) pinch.objs = selMembers().map(l => ({ l, cp: l.type === 'curve' ? curveFlat(l).map(q => q.slice()) : null, a: l.a && l.a.slice(), b: l.b && l.b.slice(), pts: l.pts && l.pts.map(q => q.slice()), rot0: l.rot || 0 }));
+    // a piece (or a drawing on a piece) selected: two fingers turn and slide that piece, with its drawings
+    const tmP = sl && !lineOff(sl) ? turnMembers() : null, pcSel = Array.isArray(tmP) && tmP.some(x => x.pc) ? tmP : null;
+    if (!(pcSel && !objLocked(pcSel.find(x => x.pc)))) pinch.free = snapObjs(freeObjs());
+    if (pcSel && !objLocked(pcSel.find(x => x.pc))) pinch.objs = pcSel.map(l => ({ l, cp: l.type === 'curve' ? curveFlat(l).map(q => q.slice()) : null, a: l.a && l.a.slice(), b: l.b && l.b.slice(), pts: l.pts && l.pts.map(q => q.slice()), rot0: l.rot || 0 }));
   }
   function updatePinch() {
     const [cx, cy, d] = mid2();
@@ -6227,7 +6346,7 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
   }
   function resetView() { setView(1, 0, 0); }
   stage.addEventListener('pointerdown', e => {
-    if (S.step !== 'project' || !S.Hinv || e.target.closest('.handle') || !$('#grainPop').hidden || e.button === 2) return;
+    if (S.step !== 'project' || !S.Hinv || e.target.closest('.handle') || !$('#grainPop').hidden || (e.button === 2 && !(e.ctrlKey && relDrawing()))) return;
     // a finger resting while the pencil draws is ignored
     if (e.pointerType === 'touch' && [...fingers.values()].some(f => f.type === 'pen')) return;
     // v129: a touch while the controls are hiding or showing never moves the pattern
@@ -6238,8 +6357,10 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
     try { stage.setPointerCapture(e.pointerId); } catch {}
     if (fingers.size === 2 && e.pointerType === 'touch') { if (G) { G.abort(); G = null; } startPinch(); return; }
     if (fingers.size > 1 || pinch) return;
+    flushRecord();
     G = startGesture(e);
   });
+  document.addEventListener('pointerdown', () => flushRecord(), true);
   stage.addEventListener('pointermove', e => {
     const f = fingers.get(e.pointerId); if (!f) return;
     f.x = e.clientX; f.y = e.clientY;
@@ -6360,6 +6481,228 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
       { label: 'Delete', danger: true, fn: () => { S.lines.forEach(x => { if (x.rel && x.rel.ref === l.id) delete x.rel; }); S.lines = S.lines.filter(x => x !== l && !(isMarkStroke(l) && x.group === l.group)); if (S.selId === l.id) S.selId = null; if (S.foldId === l.id) S.foldId = null; renderLineList(); drawLines(); updateMirror(); } }
     ], x, y, alignRight, l.id);
   }
+  /* ---------- v150: every piece is an object of its own ----------
+     Marked pieces are lifted off the sheet automatically, so each one is an object from the start (no separate
+     pieces list, no one-piece view). Objects lists them under Main fabric, Lining and Miscellaneous, each with an eye;
+     the header's eye hides or shows what's on under it and remembers which ones. "Show whole PDF" puts the untouched
+     sheet back instead of the pieces. Drawings made on a piece belong to it: they move, turn, flip and hide with it. */
+  function ownPc(l) { return !!(l && l.pc && !l.companion && l.pc.file === S.fileName && l.pc.kind !== 'sheet'); }
+  function miscPc(l) { return !!(l && l.pc && !l.companion && (l.pc.file !== S.fileName || l.pc.kind === 'sheet')); }
+  function lineOff(l) {
+    if (!l) return true;
+    if (l.hidden || l.mHid || l.wHid) return true;
+    if (l.pc && !l.companion && l.pc.file === S.fileName && l.pc.kind !== 'sheet' && (S.mainHidden || S.wholePdf)) return true;
+    if (miscPc(l) && S.miscHidden) return true;
+    if (l.owner && !l.pc) { const o = S.lines.find(x => x.id === l.owner); if (o && o.pc && lineOff(o)) return true; }
+    return false;
+  }
+  function setCut(l, v) {
+    l.cut = !!v;
+    if (ownPc(l) && !l.pc.dup) { const p = S.pieces.find(q => q.id === l.pc.pid); if (p) p.cut = l.cut; }
+    renderPieces(); renderLineList(); drawLines(); drawPieces(); record();
+    if (l.cut && S.dimCut) toast('"' + l.name.replace(/^(Lining|Main) · /, '') + '" cut · dimmed on the mat');
+  }
+  // everything that moves, turns and flips with an object: its group, plus the drawings that belong to its pieces
+  function xfGroup(l) {
+    const base = grpOf(l), set = new Set(base);
+    base.filter(x => x.pc).forEach(pcl => S.lines.forEach(d => { if (d.owner === pcl.id && !d.pc) grpOf(d).forEach(z => { if (!z.pc) set.add(z); }); }));
+    return [...set];
+  }
+  // what the turn buttons, the rotation slider and Level 0° turn while something is selected:
+  // a drawing on a piece turns the piece with it, a drawing on the pattern turns the pattern ('pattern')
+  function turnMembers() {
+    const sl = S.step === 'project' ? selLine() : null;
+    if (!sl || lineOff(sl)) return null;
+    if (sl.pc) return xfGroup(sl);
+    const o = sl.owner && S.lines.find(x => x.id === sl.owner && x.pc);
+    if (o) return xfGroup(o);
+    if (sl.pinned && !sl.shape && S.base) return 'pattern';
+    return xfGroup(sl);
+  }
+  // the piece a new drawing belongs to: the one it starts on, else the selected one, else the only one showing
+  function drawHost(p) {
+    const can = x => x && x.pc && x.pc.kind !== 'sheet' && !lineOff(x);
+    if (p) for (let i = S.lines.length - 1; i >= 0; i--) { const x = S.lines[i]; if (can(x) && pcInside(x, p)) return x; }
+    const sl = selLine();
+    if (sl) { if (can(sl)) return sl; const o = sl.owner && S.lines.find(x => x.id === sl.owner); if (can(o)) return o; }
+    const vis = S.lines.filter(can);
+    return vis.length === 1 ? vis[0] : null;
+  }
+  function adoptDrawing(l) {
+    if (!l || l.pc) return;
+    if (isMarkStroke(l)) { const sib = S.lines.find(x => x !== l && x.group === l.group && x.owner); if (sib) { l.owner = sib.owner; return; } }
+    const start = l._at || l.a || (l.pts && l.pts[0]) || (l.nodes && l.nodes[0] && l.nodes[0].p); delete l._at;
+    // a line drawn in relation to another belongs where that one belongs
+    const ref = l._ref; delete l._ref;
+    if (ref && ref.owner && S.lines.some(x => x.id === ref.owner)) { l.owner = ref.owner; return; }
+    if (ref && ref.pc) { l.owner = ref.id; return; }
+    const h = drawHost(start);
+    if (h) l.owner = h.id; else delete l.owner;
+  }
+  // a piece's outline, as a short fingerprint: when it changes in Mark pieces, the piece is lifted afresh
+  var SIGS = new WeakMap();
+  function pieceSig(p) {
+    const a = p.vpts && p.vpts.length > 2 ? p.vpts : p.pts && p.pts.length > 2 ? p.pts : null;
+    if (a) { let sx = 0, sy = 0; a.forEach(q => { sx += q[0]; sy += q[1]; }); return 'v' + a.length + ':' + Math.round(sx) + ':' + Math.round(sy); }
+    if (p.shape) { let v = SIGS.get(p.shape); if (!v) { v = 's' + JSON.stringify(p.shape).length + ':' + [p.shape.x, p.shape.y, p.shape.w, p.shape.h].map(n => Math.round(n || 0)).join(','); SIGS.set(p.shape, v); } return v; }
+    return 'b' + (p.box || []).map(n => Math.round(n)).join(',');
+  }
+  var NOLIFT = new Set();
+  var liftBusy = false, liftAgain = false, liftT = null;
+  function scheduleLift(ms) { clearTimeout(liftT); liftT = setTimeout(ensureLifted, ms == null ? 60 : ms); }
+  async function ensureLifted() {
+    if (liftBusy) { liftAgain = true; return; }
+    if (S.step !== 'project' || !S.pdf || !pdfC.width || (typeof PW !== 'undefined' && PW.open)) return;
+    if (HIST.restoring) { scheduleLift(450); return; }
+    liftBusy = true;
+    flushRecord();
+    try {
+      let changed = false;
+      // pieces deleted, or reshaped in Mark pieces, since they were lifted
+      S.lines = S.lines.filter(l => {
+        if (!ownPc(l) || l.pc.dup) return true;
+        const p = S.pieces.find(q => q.id === l.pc.pid);
+        if (!p || (l.pc.sig && l.pc.sig !== pieceSig(p))) { changed = true; if (S.selId === l.id) S.selId = null; return false; }
+        return true;
+      });
+      const list = S.pieces.filter(p => !sepOf(p) && !NOLIFT.has(p.id + '|' + pieceSig(p)));
+      if (list.length) {
+        const made = (await separatePieces(list, { keep: true, quiet: true })) || [];
+        list.forEach(p => { if (!sepOf(p)) NOLIFT.add(p.id + '|' + pieceSig(p)); });
+        if (made.length) changed = true;
+      }
+      const allUp = S.pieces.length > 0 && S.pieces.every(p => sepOf(p));
+      const off = allUp && !S.wholePdf;
+      if (!!S.sheetOff !== off) { S.sheetOff = off; changed = true; }
+      if (changed) {
+        // part of the pattern itself, not a step of its own in Undo
+        drawPieces(); drawLines(); renderLineList(); saveMarks();
+        clearTimeout(HIST.timer); if (HIST.last !== null) HIST.last = snapSafe(); syncUndoButtons();
+        scheduleSave();
+      }
+    } catch (err) { console.error(err); }
+    liftBusy = false;
+    if (liftAgain) { liftAgain = false; ensureLifted(); }
+  }
+  function setWholePdf(v) {
+    S.wholePdf = !!v;
+    const allUp = S.pieces.length > 0 && S.pieces.every(p => sepOf(p));
+    S.sheetOff = allUp && !S.wholePdf;
+    if (S.wholePdf && selLine() && ownPc(selLine())) S.selId = null;
+    drawPieces(); drawLines(); updateMirror(); renderLineList(); record();
+    toast(S.wholePdf ? 'Whole PDF showing, just as it is · its pieces are hidden meanwhile' : 'Pieces back on the mat');
+  }
+  var compOn = rec => S.lines.some(l => l.companion === rec.id && !l.mHid && !l.hidden);
+  var compWhole = rec => S.lines.some(l => l.companion === rec.id && l.pc && l.pc.kind === 'sheet');
+  async function setCompWhole(rec, v) {
+    if (v) {
+      if (!compWhole(rec)) await companionOn(rec, false, { sheetOnly: true });
+      S.lines.forEach(l => { if (l.companion !== rec.id) return; delete l.mHid; if (l.pc && l.pc.kind === 'sheet') delete l.hidden; else l.wHid = true; });
+    } else {
+      S.lines = S.lines.filter(l => !(l.companion === rec.id && l.pc && l.pc.kind === 'sheet'));
+      S.lines.forEach(l => { if (l.companion === rec.id) delete l.wHid; });
+    }
+    if (selLine() && lineOff(selLine())) S.selId = null;
+    drawLines(); renderLineList(); renderPatternList(); saveMarks(); record();
+  }
+  // ⋯ → Show only this one: every other piece under the same heading is hidden
+  function isolatePc(l) {
+    const same = x => x.pc && x.pc.kind !== 'sheet' && (l.companion ? x.companion === l.companion : ownPc(l) ? ownPc(x) : miscPc(x));
+    S.lines.forEach(x => { if (!same(x)) return; if (x === l) delete x.hidden; else x.hidden = true; });
+    if (ownPc(l)) { S.mainHidden = false; if (S.wholePdf) { S.wholePdf = false; S.sheetOff = S.pieces.length > 0 && S.pieces.every(p => sepOf(p)); } }
+    else if (l.companion) { S.lines = S.lines.filter(x => !(x.companion === l.companion && x.pc && x.pc.kind === 'sheet')); S.lines.forEach(x => { if (x.companion === l.companion) { delete x.mHid; delete x.wHid; } }); }
+    else S.miscHidden = false;
+    S.selId = l.id;
+    drawPieces(); drawLines(); renderLineList(); renderPatternList(); record();
+    toast('Showing only "' + l.name.replace(/^(Lining|Main) · /, '') + '" · tick the other eyes to add more');
+  }
+  function showAllUnder(key, rec) {
+    S.lines.forEach(x => { if (!(x.pc && x.pc.kind !== 'sheet')) return; if (key === 'own' ? ownPc(x) : key === 'other' ? x.companion === rec.id : miscPc(x)) delete x.hidden; });
+    drawLines(); renderLineList(); record();
+  }
+  var EYE_ON = '<svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>';
+  var EYE_OFF = '<svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12z"/><circle cx="12" cy="12" r="3"/><path d="M4 20L20 4"/></svg>';
+  // buttons that live in Objects' sections (moved there each time the list is drawn)
+  function keptEl(id) { const k = S._kept || (S._kept = {}); if (!k[id]) k[id] = document.getElementById(id); return k[id]; }
+  function buildObjectSections(box, mkItem) {
+    { const home = keptEl('pieceManual'); ['editPiecesBtn', 'asmOpen2'].forEach(id => { const b = keptEl(id); if (home && b) home.append(b); }); }
+    const open = S.secOpen || (S.secOpen = { own: true, other: true, misc: true, lines: true });
+    const otherRec = [PROJ.main, PROJ.lining].find(r => r && r.id && r.id !== SAVE.id) || null;
+    const L = S.lines, top = l => !(isMarkStroke(l) && firstOfGroup(l) !== l);
+    const pcIds = new Set(L.filter(l => l.pc).map(l => l.id));
+    const owned = id => L.filter(l => l.owner === id && !l.pc && top(l));
+    const ownLines = L.filter(ownPc);
+    const otherAll = otherRec ? L.filter(l => l.companion === otherRec.id) : [];
+    const otherPcs = otherAll.filter(l => !(l.pc && l.pc.kind === 'sheet'));
+    const miscLines = L.filter(l => miscPc(l) || (l.companion && (!otherRec || l.companion !== otherRec.id)));
+    const loose = L.filter(l => !l.pc && !l.companion && top(l) && !(l.owner && pcIds.has(l.owner)));
+    const addPieces = (body, list) => list.forEach(l => { body.append(mkItem(l, 'piece')); owned(l.id).forEach(d => body.append(mkItem(d, 'sub'))); });
+    const cutOf = list => { const n = list.filter(l => !(l.pc && l.pc.dup)).length, c = list.filter(l => l.cut && !(l.pc && l.pc.dup)).length; return n ? c + ' / ' + n + ' cut' : ''; };
+    const head = (key, title, meta, eyeOn, onEye, eyeTitle) => {
+      const sec = document.createElement('div'); sec.className = 'osec' + (open[key] ? ' open' : '') + (onEye && !eyeOn ? ' off' : '');
+      const h = document.createElement('div'); h.className = 'ohead'; h.setAttribute('role', 'button'); h.tabIndex = 0; h.setAttribute('aria-expanded', String(!!open[key]));
+      let eye;
+      if (onEye) {
+        eye = document.createElement('button'); eye.type = 'button'; eye.className = 'leye' + (eyeOn ? ' on' : ''); eye.innerHTML = eyeOn ? EYE_ON : EYE_OFF;
+        eye.title = eyeTitle || (eyeOn ? 'Hide all of ' + title + ' on the mat' : 'Show ' + title + ' on the mat again'); eye.setAttribute('aria-label', eye.title); eye.setAttribute('aria-pressed', String(!!eyeOn));
+        eye.addEventListener('click', e => { e.stopPropagation(); onEye(); });
+      } else { eye = document.createElement('span'); eye.className = 'leye'; }
+      const ar = document.createElement('span'); ar.className = 'oarr'; ar.setAttribute('aria-hidden', 'true'); ar.textContent = open[key] ? '▾' : '▸';
+      const t = document.createElement('b'); t.textContent = title;
+      const m = document.createElement('span'); m.className = 'ometa'; m.textContent = meta || '';
+      h.append(eye, t, m, ar);
+      const flip = () => { open[key] = !open[key]; renderLineList(); };
+      h.addEventListener('click', flip); h.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); flip(); } });
+      const body = document.createElement('div'); body.className = 'obody'; body.hidden = !open[key];
+      sec.append(h, body); box.append(sec); return body;
+    };
+    const check = (body, label, on, title, fn) => {
+      const l = document.createElement('label'); l.className = 'check owhole'; l.title = title;
+      const sp = document.createElement('span'); sp.textContent = label;
+      const i = document.createElement('input'); i.type = 'checkbox'; i.checked = !!on; i.addEventListener('change', () => fn(i.checked));
+      l.append(sp, i); body.append(l);
+    };
+    // 1. the pattern that's open (main fabric, or the lining)
+    if (S.base) {
+      const slot = SAVE.meta && SAVE.meta.slot === 'lining' ? 'Lining' : S.pdf ? 'Main fabric' : 'Sample pattern';
+      const name = S.fileName ? S.fileName.replace(/\.pdf$/i, '') : '';
+      const body = head('own', slot, [name, cutOf(ownLines)].filter(Boolean).join(' · '), !S.mainHidden, () => { setMainHidden(!S.mainHidden); renderLineList(); });
+      if (S.pieces.length) check(body, 'Show whole PDF', S.wholePdf, 'Show the PDF sheet just as it is, with its notes and size table · the pieces hide meanwhile', v => setWholePdf(v));
+      addPieces(body, ownLines);
+      const left = S.pieces.filter(p => !sepOf(p)).length;
+      if (left && !S.wholePdf) { const n = document.createElement('p'); n.className = 'note'; n.textContent = left + (left > 1 ? ' pieces have' : ' piece has') + ' no outline to follow, so ' + (left > 1 ? 'they show' : 'it shows') + ' on the sheet.'; body.append(n); }
+      if (!S.pieces.length) { const n = document.createElement('p'); n.className = 'note'; n.textContent = 'No pieces marked yet. The whole PDF shows on the mat; mark the pieces once and each becomes its own object here.'; body.append(n); }
+      const bt = document.createElement('div'); bt.className = 'row2 obtns';
+      ['editPiecesBtn', 'asmOpen2'].forEach(q => { const b = keptEl(q); if (b) bt.append(b); });
+      body.append(bt);
+    }
+    // 2. the other pattern of the project
+    if (otherRec) {
+      const title = otherRec.slot === 'lining' ? 'Lining' : 'Main fabric', on = compOn(otherRec);
+      const body = head('other', title, [otherRec.name.replace(/\.pdf$/i, ''), cutOf(otherPcs)].filter(Boolean).join(' · '), on, () => { if (on) companionOff(otherRec); else companionOn(otherRec); });
+      if (!otherAll.length) { const n = document.createElement('p'); n.className = 'note'; n.textContent = 'Not on the mat · tap the eye to lay it over this one.'; body.append(n); }
+      else if (otherPcs.length) { check(body, 'Show whole PDF', compWhole(otherRec), 'Show this PDF sheet just as it is · its pieces hide meanwhile', v => setCompWhole(otherRec, v)); addPieces(body, otherPcs); }
+      else addPieces(body, otherAll);
+      const bt = document.createElement('div'); bt.className = 'row2 obtns';
+      const b = document.createElement('button'); b.type = 'button'; b.className = 'btn slim'; b.textContent = 'Mark pieces on the ' + title.toLowerCase();
+      b.title = 'Switch to the ' + title.toLowerCase() + ' to mark or edit its pieces · the mat stays as it is';
+      b.addEventListener('click', () => switchPattern(otherRec.id).then(() => renderPatternList()));
+      bt.append(b); body.append(bt);
+    }
+    // 3. brought in from other patterns
+    const bring = keptEl('bringBtn');
+    if (miscLines.length) {
+      const body = head('misc', 'Miscellaneous', miscLines.length + ' from other patterns', !S.miscHidden, () => { S.miscHidden = !S.miscHidden; if (S.miscHidden && selLine() && lineOff(selLine())) S.selId = null; drawLines(); renderLineList(); record(); });
+      addPieces(body, miscLines);
+      if (bring) body.append(bring);
+    } else if (bring) $('#lineList').after(bring);
+    // 4. lines and marks that belong to no piece
+    if (loose.length) {
+      const body = head('lines', 'Lines and marks', String(loose.length), null, null);
+      loose.forEach(l => body.append(mkItem(l, 'line')));
+    }
+    const dc = $('#pieceOpts2'); if (dc) { $('#lineList').after(dc); dc.hidden = !L.some(l => l.pc && l.pc.kind !== 'sheet'); }
+  }
   /* ---------- separate pieces (v137) ----------
      Each marked piece can become its own object on the mat: an exact outline taken from the PDF's own drawn lines
      (or traced from the marked area when the PDF has none, e.g. a scan or joined print-at-home pages), carrying the
@@ -6401,7 +6744,7 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
     if (!pdfC.width || !S.pieces.length) return;
     list = list.filter(p => !sepOf(p));
     if (!list.length) return;
-    if (!opt.keep) toast('Separating ' + (list.length > 1 ? list.length + ' pieces' : '"' + pName(list[0]) + '"') + '…');
+    if (!opt.keep && !opt.quiet) toast('Separating ' + (list.length > 1 ? list.length + ' pieces' : '"' + pName(list[0]) + '"') + '…');
     await new Promise(r => setTimeout(r, 30));
     let vec = null;
     try { vec = await pageVectors(); } catch (err) { console.error(err); }
@@ -6413,12 +6756,13 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
       if (r.kind === 'traced') traced++;
       const sheet = r.pts.concat([r.pts[0].slice()]), world = sheet.map(c => toWorld(canvasToLocal(c)));
       const l = { id: newPcId(), type: 'free', name: pName(p), pts: world,
-        pc: { pid: p.id, file: S.fileName, kind: r.kind, pts0: sheet.map(q => [Math.round(q[0] * 100) / 100, Math.round(q[1] * 100) / 100]) },
+        pc: { pid: p.id, file: S.fileName, kind: r.kind, sig: pieceSig(p), pts0: sheet.map(q => [Math.round(q[0] * 100) / 100, Math.round(q[1] * 100) / 100]) },
         color: 'pattern', dash: 'solid', wm: 1, extend: 'none', ruler: false, noLabel: true, rot: S.rot, cut: !!p.cut };
       pin(l, true);
       S.lines.push(l); MARKS.set(l.id, NotchVec.packMarks(r.marks || [])); made.push(l); shelve(l);
     }
-    if (!made.length) { toast('Could not make outlines for those pieces'); return; }
+    if (!made.length) { if (!opt.quiet) toast('Could not make outlines for those pieces'); return; }
+    if (opt.quiet) return made;
     if (opt.keep) { S.matSel = null; S.selId = made[0].id; renderLineList(); renderPieces(); drawPieces(); drawLines(); record(); saveMarks(); return made; }
     S.oneAt = false; $('#oneAtChk').checked = false; S.matSel = null; S.selId = null; S.sheetOff = false; drawPieces();
     renderLineList(); renderPieces(); drawLines(); record(); saveMarks();
@@ -6498,7 +6842,7 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
   }
   function pcInside(l, p) { return NotchVec.inPoly(l.pts, p[0], p[1]); }
   // topmost separated piece under a point
-  const offMat = l => l.hidden || (S.mainHidden && l.pc && !l.companion && l.pc.file === S.fileName);
+  const offMat = l => lineOff(l);
   function pcAt(p) { for (let i = S.lines.length - 1; i >= 0; i--) { const l = S.lines[i]; if (l.pc && !offMat(l) && pcInside(l, p)) return l; } return null; }
   // drag, add or remove a point of the selected piece's outline (Edit points)
   function pcPointGesture(e, p0) {
@@ -6548,7 +6892,7 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
   // mirror the selected objects round their middle (left to right, or top to bottom)
   function flipSel(phi) {
     if (lockedSay()) return true;
-    const m = selMembers(); if (!m.length) return false;
+    const tm = turnMembers(), m = Array.isArray(tm) ? tm : selMembers(); if (!m.length) return false;
     if (objLockedSay(m[0])) return true;
     const [x0, y0, x1, y1] = bboxOf(m), cx = (x0 + x1) / 2, cy = (y0 + y1) / 2, lr = phi === 90;
     const f = q => lr ? [2 * cx - q[0], q[1]] : [q[0], 2 * cy - q[1]];
@@ -6557,7 +6901,7 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
       l.rot = Math.round(norm180(lr ? 180 - (l.rot || 0) : -(l.rot || 0)) * 100) / 100; l._fit = null; lineCommit(l);
     });
     drawLines(); record(); syncRotUI();
-    toast(`Flipped "${m.length > 1 ? 'the group' : m[0].name}" ${lr ? 'left to right' : 'top to bottom'}`);
+    { const pcs = m.filter(x => x.pc); toast(`Flipped "${pcs.length === 1 ? pcs[0].name.replace(/^(Lining|Main) · /, '') : m.length > 1 ? 'the group' : m[0].name}" ${lr ? 'left to right' : 'top to bottom'}`); }
     return true;
   }
   function duplicatePc(l) {
@@ -6581,12 +6925,14 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
     const back = { label: '← Back', keepOpen: true, fn: () => pcMenu(l, x, y, alignRight) };
     const capital = k => k[0].toUpperCase() + k.slice(1);
     const src = l.pc.file !== S.fileName ? ' · from ' + l.pc.file.replace(/\.pdf$/i, '') : '';
-    openMenu(l.name + src, [
+    const own = ownPc(l) && !l.pc.dup, pi = own ? S.pieces.findIndex(q => q.id === l.pc.pid) : -1;
+    openMenu(l.name.replace(/^(Lining|Main) · /, '') + src, [
+      ...(l.pc.kind !== 'sheet' ? [{ label: 'Show only this one', fn: () => isolatePc(l) }] : []),
       { label: S.ptEdit === l.id ? 'Done editing points' : 'Edit points', fn: () => togglePtEdit(l) },
       { label: 'Flip left to right', fn: () => { S.selId = l.id; flipSel(90); } },
       { label: 'Flip top to bottom', fn: () => { S.selId = l.id; flipSel(0); } },
       { label: 'Duplicate', fn: () => duplicatePc(l) },
-      { label: l.cut ? 'Mark as not cut' : 'Mark as cut', fn: () => { l.cut = !l.cut; const p = S.pieces.find(q => q.id === l.pc.pid && l.pc.file === S.fileName); if (p) { p.cut = l.cut; renderPieces(); } drawLines(); record(); } },
+      { label: l.cut ? 'Mark as not cut' : 'Mark as cut', fn: () => setCut(l, !l.cut) },
       { label: 'Colour…', keepOpen: true, fn: () => sub('Colour', [back, { label: 'Same as pattern', current: !PCOL[l.color] && l.color !== 'custom', fn: () => { l.color = 'pattern'; drawLines(); renderLineList(); record(); } }, ...Object.keys(PCOL).map(k => ({ label: capital(k), current: (l.color || '') === k, fn: () => setStyle('sel', { color: k }) }))]) },
       { label: 'Line style…', keepOpen: true, fn: () => sub('Line style', [back, ...DASHES.map(d => ({ label: d[2], current: (l.dash || 'solid') === d[0], fn: () => setStyle('sel', { dash: d[0] }) }))]) },
       { label: 'Thickness…', keepOpen: true, fn: () => sub('Thickness', [back, ...WIDTHS.map(w => ({ label: w[1], current: (l.wm || 1) === w[0], fn: () => setStyle('sel', { wm: w[0] }) }))]) },
@@ -6595,9 +6941,16 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
       { label: l.screen ? 'Unpin · move with the pattern' : 'Pin to screen', fn: () => { screenPin(l, !l.screen); renderLineList(); drawLines(); } },
       l.group ? { label: 'Ungroup', fn: () => ungroup(l) } : { label: 'Group with…', fn: () => startPick(l) },
       { label: 'Rename', fn: () => { setPanel(true); if (S.tab !== 'pattern') go('project', 'pattern'); openFold('lines'); renderLineList(l.id); const f = document.getElementById('name-' + l.id); if (f) f.select(); } },
-      ...(l.pc.file === S.fileName ? [{ label: 'Put back on the sheet', fn: () => putBack([l]) }] : []),
-      { label: 'Delete', danger: true, fn: () => putBack([l]) }
+      ...(pi >= 0 ? [{ label: 'Edit in Mark pieces', fn: () => { openPieces(); if (PW.open) pwPick(pi); } }] : []),
+      { label: own ? 'Delete this piece' : 'Delete', danger: true, fn: () => deletePc(l) }
     ], x, y, alignRight, l.id);
+  }
+  // a piece of the open pattern goes from Mark pieces too (otherwise it would come straight back); Undo brings it back
+  function deletePc(l) {
+    if (ownPc(l) && !l.pc.dup) { const i = S.pieces.findIndex(q => q.id === l.pc.pid); if (i >= 0) { S.pieces.splice(i, 1); if (S.curPiece >= S.pieces.length) S.curPiece = S.pieces.length - 1; } }
+    S.lines.forEach(d => { if (d.owner === l.id) delete d.owner; });
+    putBack([l]); renderPieces(); renderLineList();
+    toast('"' + l.name.replace(/^(Lining|Main) · /, '') + '" deleted · Undo brings it back');
   }
   // Every separated piece is also kept on a shelf on this device (beside the projects, so starting a new project
   // doesn't lose it): from there it can be laid next to the pieces of any other pattern, to compare.
@@ -6805,7 +7158,8 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
 
   { const _rp = renderPieces; renderPieces = function () {
       const r = _rp.apply(this, arguments);
-      try { S.lines.forEach(l => { if (l.pc && !l.pc.dup && l.pc.file === S.fileName) { const p = S.pieces.find(q => q.id === l.pc.pid); if (p && !!p.cut !== !!l.cut) { l.cut = !!p.cut; drawLines(); } } }); syncSepUI(); } catch {}
+      try { S.lines.forEach(l => { if (l.pc && !l.pc.dup && !l.companion && l.pc.file === S.fileName) { const p = S.pieces.find(q => q.id === l.pc.pid); if (p && !!p.cut !== !!l.cut) { l.cut = !!p.cut; drawLines(); } } }); syncSepUI(); } catch {}
+      scheduleLift();
       return r;
     }; }
 
@@ -6851,7 +7205,7 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
   function pieceMenu(p, i, x, y, alignRight, at) {
     const iso = S.oneAt && i === S.curPiece;
     openMenu(pName(p), [
-      iso ? { label: 'Show all pieces', fn: showAll } : { label: 'Show isolated', fn: () => showIsolated(i) },
+      { label: 'Show only this one', fn: () => { const l = sepOf(p); if (l) isolatePc(l); else showIsolated(i); } },
       ...(at && (!S.oneAt || iso) ? pivotItems(at) : []),
       { label: 'Rename', fn: () => { const f = document.getElementById('pname-' + p.id); if (f) startRename(f); } },
       { label: 'Brush off extra lines', fn: () => startErase(i) },
@@ -6868,9 +7222,11 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
     if (pi >= 0) { if (!S.oneAt) selectPieceOnMat(pi); pieceMenu(S.pieces[pi], pi, x, y, false, w); return; }
     if (pdfC.width) matMenu(w, x, y); else closeMenu();
   }
+  function relDrawing() { return S.step === 'project' && S.tool === 'line' && S.lmode !== 'free' && !!refLine(); }
   stage.addEventListener('contextmenu', e => {
     if (S.step !== 'project' || !S.Hinv) return;
     e.preventDefault();
+    if (relDrawing()) return;
     if (e.target.closest('#pivotMark')) { matMenu(null, e.clientX, e.clientY); return; }
     matContext(e.clientX, e.clientY);
   });
@@ -7027,27 +7383,32 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
   /* ---------- undo / redo: every change to the pattern or screen ---------- */
   // A snapshot is taken shortly after anything changes; a drag or slider becomes one step.
   const HIST = { undo: [], redo: [], last: null, timer: null, restoring: false };
+  const HISTS = new Map();   // pattern id → its Undo steps, kept while the other pattern of the project is open
   const LABELS = { sheet: 'PDF sheet', fold: 'mirror image', pos: 'move', rot: 'rotation', flip: 'flip', lines: 'lines', pieces: 'pieces', layers: 'sizes', look: 'colours and lines', grid: 'grid', ruler: 'ruler' };
   function snap() {
     const layers = {}; layerGroups().forEach(([id, g]) => layers[id] = g.visible !== false);
     return JSON.stringify({
       pos: [Math.round(S.pc.x * 10) / 10, Math.round(S.pc.y * 10) / 10], rot: S.rot, flip: S.flip,
       lines: S.lines, selId: S.selId, pieces: S.pieces.map(p => ({ ...p, nameCands: undefined })), curPiece: S.curPiece, oneAt: S.oneAt, dimCut: S.dimCut,
-      sheet: !!S.sheetOff, mainHidden: !!S.mainHidden, vedits: S.vEdits || null, layers, fold: S.foldId, look: [S.bg, S.patCol, S.boost, S.patHex, S.gridHex], grid: [S.grid, S.gridSize, S.gridAlpha, S.gridCol], ruler: [S.ruler, S.lunit]
+      sheet: !!S.sheetOff, mainHidden: !!S.mainHidden, wholePdf: !!S.wholePdf, miscHidden: !!S.miscHidden, vedits: S.vEdits || null, layers, fold: S.foldId, look: [S.bg, S.patCol, S.boost, S.patHex, S.gridHex], grid: [S.grid, S.gridSize, S.gridAlpha, S.gridCol], ruler: [S.ruler, S.lunit]
     });
   }
   function record() {
     scheduleSave();
     if (HIST.restoring || S.step !== 'project') return;
     clearTimeout(HIST.timer);
-    HIST.timer = setTimeout(() => {
-      const now = snap();
-      if (HIST.last === null) { HIST.last = now; return; }
-      if (now === HIST.last) return;
-      HIST.undo.push(HIST.last); if (HIST.undo.length > 100) HIST.undo.shift();
-      HIST.redo = []; HIST.last = now; syncUndoButtons();
-    }, 350);
+    HIST.timer = setTimeout(commitRecord, 350);
   }
+  function commitRecord() {
+    HIST.timer = null;
+    let now; try { now = snap(); } catch { return; }
+    if (HIST.last === null) { HIST.last = now; return; }
+    if (now === HIST.last) return;
+    HIST.undo.push(HIST.last); if (HIST.undo.length > 200) HIST.undo.shift();
+    HIST.redo = []; HIST.last = now; syncUndoButtons();
+  }
+  // a new action starts: whatever changed before it becomes its own Undo step (quick actions no longer merge)
+  function flushRecord() { if (!HIST.timer) return; clearTimeout(HIST.timer); if (HIST.restoring || S.step !== 'project') { HIST.timer = null; return; } commitRecord(); }
   function whatChanged(a, b) {
     const A = JSON.parse(a), B = JSON.parse(b);
     const k = Object.keys(LABELS).find(key => JSON.stringify(A[key]) !== JSON.stringify(B[key]));
@@ -7057,7 +7418,7 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
     const d = JSON.parse(json);
     HIST.restoring = true;
     S.pc = { x: d.pos[0], y: d.pos[1] }; S.rot = d.rot; S.flip = d.flip;
-    S.lines = d.lines; S.selId = d.selId; S.foldId = d.fold || null; S.sheetOff = false; S.mainHidden = !!d.mainHidden; S.vEdits = d.vedits || null; S.pieces = d.pieces; S.pieces.forEach(p => { if (/^Piece \d+$/i.test((p.name || '').trim())) p.name = ''; }); S.curPiece = d.curPiece; S.oneAt = d.oneAt; S.dimCut = d.dimCut;
+    S.lines = d.lines; S.selId = d.selId; S.foldId = d.fold || null; S.sheetOff = !!d.sheet; S.mainHidden = !!d.mainHidden; S.wholePdf = !!d.wholePdf; S.miscHidden = !!d.miscHidden; S.vEdits = d.vedits || null; S.pieces = d.pieces; S.pieces.forEach(p => { if (/^Piece \d+$/i.test((p.name || '').trim())) p.name = ''; }); S.curPiece = d.curPiece; S.oneAt = d.oneAt; S.dimCut = d.dimCut;
     [S.ruler, S.lunit] = d.ruler; [S.grid, S.gridSize, S.gridAlpha, S.gridCol] = d.grid;
     $('#oneAtChk').checked = S.oneAt; $('#dimCutChk').checked = S.dimCut; $('#rulerChk').checked = S.ruler; syncRulerBtn(); $('#gridChk').checked = S.grid; syncGridBtn();
     $$('[data-lunit]').forEach(x => x.classList.toggle('on', x.dataset.lunit === S.lunit));
@@ -7070,7 +7431,8 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
     if (layersChanged) { buildLayers(); renderPage(false); }
     placePattern(); renderLineList(); renderPieces(); drawLines(); drawPieces(); drawGrid(); updateMirror(); syncSepUI();
     HIST.last = json;
-    setTimeout(() => { HIST.restoring = false; }, 400);
+    // redraws still finishing are part of this step, not a new one; anything after it is recorded as usual
+    setTimeout(() => { HIST.restoring = false; clearTimeout(HIST.timer); HIST.timer = null; const now = snapSafe(); if (now) HIST.last = now; syncUndoButtons(); }, 150);
     syncUndoButtons();
   }
   function undo() {
@@ -7115,7 +7477,7 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
     if (active) { S.lmode = 'free'; pickTool('move', true); syncLineBar(); return; }
     drawRelative(r, k); syncLineBar();
     const what = k === 'par' ? 'parallel to' : k === 'd45' ? 'at 45° to' : 'at 90° to';
-    toast('Draw a line ' + what + ' "' + r.name + '" · it follows it when it moves');
+    toast('Click where the line ' + what + ' "' + r.name + '" should go · ' + (matchMedia('(pointer: coarse)').matches ? 'press and hold, then drag' : 'Ctrl + drag') + ' for a short one');
   }
   function setSqKind(k) { S.sqKind = k; const b = $('#lbSq'); b.innerHTML = SQ_ICON[k]; b.title = (k === 'd45' ? '45°' : '90°') + ': the new line keeps this angle to the selected line and follows it · hold: 90° or 45°'; b.setAttribute('aria-label', k === 'd45' ? 'Draw a line at 45 degrees (hold for 90 or 45)' : 'Draw a line at 90 degrees (hold for 90 or 45)'); }
   $('#lbPar').addEventListener('click', () => startRelative('par'));
@@ -7187,7 +7549,11 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
   document.addEventListener('keydown', e => { if (S.pick && e.key === 'Escape') { e.preventDefault(); e.stopImmediatePropagation(); endPick(); } else if (S.pick && e.key === 'Enter') { e.preventDefault(); makeGroup(); } }, true);
   $('#lineBarDelete').addEventListener('click', () => {
     const gone = selMembers(); if (!gone.length) return;
+    // a piece of the open pattern also goes from its marked pieces (otherwise it would be lifted again)
+    if (gone.length === 1 && ownPc(gone[0]) && !gone[0].pc.dup) { deletePc(gone[0]); return; }
     const ids = new Set(gone.map(x => x.id));
+    S.lines.forEach(d => { if (d.owner && ids.has(d.owner)) delete d.owner; });
+    gone.filter(x => ownPc(x) && !x.pc.dup).forEach(x => { const i = S.pieces.findIndex(q => q.id === x.pc.pid); if (i >= 0) S.pieces.splice(i, 1); });
     S.lines.forEach(x => { if (x.rel && ids.has(x.rel.ref)) delete x.rel; });
     S.lines = S.lines.filter(x => !ids.has(x.id));
     if (ids.has(S.foldId)) S.foldId = null;
@@ -7315,7 +7681,7 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
     m.style.left = sp[0] + 'px'; m.style.top = sp[1] + 'px';
     m.classList.toggle('ghost', !info.custom);
   }
-  function turn(d) { if (lockedSay()) return; const sl = S.step === 'project' ? selLine() : null; if (sl && !sl.hidden) { rotateSel(d); return; } rotateBy(d, pivotInfo().world); flashPivot(); }
+  function turn(d) { if (lockedSay()) return; const sl = S.step === 'project' ? selLine() : null; if (sl && !lineOff(sl)) { rotateSel(d); return; } rotateBy(d, pivotInfo().world); flashPivot(); }
   // Flip line: whole mat = through the middle of the screen; one piece = through its centre. Drag it to move it;
   // a moved line is kept on the pattern (one per piece, one for the whole mat) and the next flip uses it.
   function flipInfo() {
@@ -7325,7 +7691,7 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
   }
   function flipFocus(phi, label) {
     if (lockedSay()) return;
-    { const sl = selLine(); if (sl && sl.pc) { flipSel(phi); return; } }
+    { const tm = turnMembers(); if (Array.isArray(tm) && tm.some(x => x.pc)) { flipSel(phi); return; } }
     const f = flipInfo(), name = f.piece ? pName(f.piece) : null;
     S.flipPhi = phi; mirrorPattern(phi, f.world); flashFlip(3000);
     toast(`Flipped ${name ? '"' + name + '" ' : ''}${label}`);
@@ -7376,7 +7742,7 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
   }
   function quarterTurn() {
     if (lockedSay()) return;
-    const sl = selLine(); if (sl && S.step === 'project') { rotateSel(90); toast(`Turned "${sl.name}" 90°`); return; }
+    const sl = selLine(); if (sl && S.step === 'project' && !lineOff(sl)) { const tm = turnMembers(), pc = Array.isArray(tm) && tm.find(x => x.pc); rotateSel(90); toast(tm === 'pattern' ? 'Turned the pattern 90° · with the line on it' : `Turned "${(pc || sl).name.replace(/^(Lining|Main) · /, '')}" 90°`); return; }
     const f = focusTarget();
     turn(90);
     toast(f.name ? `Turned "${f.name}" 90°` : 'Turned 90°');
@@ -7653,11 +8019,17 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
   /* ---------- project controls ---------- */
   const input = $('#pdfInput'), drop = $('#drop');
   // Change file = new project: ask first when there's a project to lose; nothing is cleared until a PDF is picked
+  // v150: the box opens the picker itself (Safari could leave a label-opened picker dead after Clear project) and
+  // decides from what's on screen: the dashed "Add a pattern PDF" box means there's no project to lose
   $('#drop').addEventListener('click', e => {
     if (e.target === input) return;
-    if (!PROJ.ok && PROJ.main) { e.preventDefault(); askNewProject(null); return; }
+    e.preventDefault();
+    const loaded = drop.classList.contains('loaded') && !!PROJ.main;
+    if (!PROJ.ok && loaded) { try { askNewProject(null); return; } catch (err) { console.error(err); } }
     if (!PROJ.ok) PROJ.mode = 'main';
-    input.value = '';
+    PROJ.ok = true; input.value = '';
+    try { if (input.showPicker) input.showPicker(); else input.click(); } catch (err) { input.click(); }
+    setTimeout(() => { PROJ.ok = false; }, 1000);
   });
   input.addEventListener('change', () => {
     const f = input.files[0], mode = PROJ.mode; PROJ.mode = 'main'; PROJ.ok = false; input.value = '';
@@ -8125,13 +8497,16 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
     rv.addEventListener('focus', () => rv.select());
   }
   // the rotation slider turns the selected objects when something is selected, otherwise the pattern (and the bias strips)
-  function selAngle() { const m = S.step === 'project' ? selMembers() : []; return m.length ? (m[0].rot || 0) : null; }
+  function selAngle() { const m = turnMembers(); if (!Array.isArray(m) || !m.length) return null; const p = m.find(x => x.pc) || m[0]; return p.rot || 0; }
   function rotateSel(d) {
-    const m = selMembers(); if (!m.length || !d) return;
+    const tm = turnMembers();
+    // a line drawn on the pattern: the pattern turns, with the line on it
+    if (tm === 'pattern') { if (d) { rotateBy(d, pivotInfo().world); flashPivot(); } return; }
+    const m = Array.isArray(tm) ? tm : selMembers(); if (!m.length || !d) return;
     if ((m.some(x => x.pc) && lockedSay()) || objLockedSay(m[0])) { syncRotUI(); return; }
     // turn round the middle of all their points (it stays put however far they turn)
     let sx = 0, sy = 0, n = 0;
-    m.forEach(l => (l.type === 'curve' ? curveFlat(l) : ptsOf(l)).forEach(q => { sx += q[0]; sy += q[1]; n++; }));
+    (m.some(x => x.pc) ? m.filter(x => x.pc) : m).forEach(l => (l.type === 'curve' ? curveFlat(l) : ptsOf(l)).forEach(q => { sx += q[0]; sy += q[1]; n++; }));
     const c = [sx / n, sy / n], t = rad(d), co = Math.cos(t), si = Math.sin(t);
     const rot = q => { const dx = q[0] - c[0], dy = q[1] - c[1]; return [c[0] + dx * co - dy * si, c[1] + dx * si + dy * co]; };
     m.slice().sort((x, y) => (x.rel ? 1 : 0) - (y.rel ? 1 : 0)).forEach(l => {
@@ -8429,6 +8804,9 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
   }
   // Clear: removes every saved pattern (PDFs and their work) from this device; the one on screen stays open but stops saving
   async function clearProject() {
+    // stop saving first, and let a save that's already running finish, so it can't write the pattern back afterwards
+    clearTimeout(SAVE.timer); SAVE.ready = false; SAVE.id = null;
+    try { await SAVE.busy; } catch {}
     try { await clearWorkKeepShelf(); await DB.clear('files'); } catch { toast('Could not clear the project'); return; }
     clearTimeout(SAVE.timer); SAVE.id = null; SAVE.ready = false; SAVE.lastSig = ''; pset('pp_last', ''); PROJ.main = PROJ.lining = null;
     showBlank(); renderPatternList();
@@ -8745,7 +9123,7 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
   if (PHONE) phoneStart();
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { drawGrid(); drawTest(); drawLines(); });
   // automated checks only (never on in normal use)
-  if (/[?&]notchtest\b/.test(location.search)) window.__N = { S, pieceAt, toWorld, canvasToLocal, switchPattern, hitLine, movePattern, syncLock, freeObjs, PROJ, startPick, togglePick, makeGroup, renderLineList, companionOn, companionOff, setMainHidden, renderPatternList, turn, quarterTurn, PW, VG, OP, opTap, bringWhole, findFromLoops, pwGraph, pwShapeTap, pwUnlineTap, pwAddLine, pwSave, AI, aiFind, cellsUnder, openPieces, FILL, fillTapWith, selApply, MARKS, separatePieces, setSheet, flipSel, pcAt, putBack, fillGrid, fillTap, fillMakePiece, selClear, toMm, toScreen, drawLines, renderPieces, go, bringPiece, importPc, saveNow, togglePtEdit, pcPointGesture, lineEditGesture, rotateSel, P, DB };
+  if (/[?&]notchtest\b/.test(location.search)) window.__N = { S, pieceAt, toWorld, canvasToLocal, switchPattern, hitLine, movePattern, syncLock, freeObjs, PROJ, startPick, togglePick, makeGroup, renderLineList, companionOn, companionOff, setMainHidden, renderPatternList, turn, quarterTurn, PW, VG, OP, opTap, bringWhole, findFromLoops, pwGraph, pwShapeTap, pwUnlineTap, pwAddLine, pwSave, AI, aiFind, cellsUnder, openPieces, FILL, fillTapWith, selApply, MARKS, separatePieces, setSheet, flipSel, pcAt, putBack, fillGrid, fillTap, fillMakePiece, selClear, toMm, toScreen, drawLines, renderPieces, go, bringPiece, importPc, saveNow, togglePtEdit, pcPointGesture, lineEditGesture, rotateSel, P, DB, lineOff, turnMembers, undo, redo, HIST, HISTS, ensureLifted, setWholePdf, setCompWhole, isolatePc, setCut, selectLine, addLine, get SAVE() { return SAVE; }, get PROJ2() { return PROJ; } };
 })();
 </script>
 
