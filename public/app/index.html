@@ -9080,10 +9080,28 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
       clearTimeout(t); delete ig.dataset.armed; $('#winAsk').hidden = true; toast('Kept the old calibration · check a ruler on the mat if unsure');
     }); }
   let toastTimer;
-  // prototype helper: any error shows on screen (with where it happened) so it can be reported
-  window.addEventListener('error', e => { try { toast('Error: ' + e.message + (e.lineno ? ' (line ' + e.lineno + ')' : '')); } catch {} });
-  window.addEventListener('unhandledrejection', e => { try { toast('Error: ' + ((e.reason && e.reason.message) || e.reason)); } catch {} });
+  // errors: a script error still shows on screen; a promise the browser turned down in the background (Safari's
+  // "UnavailableError", seen 2 Nov while the app sat idle) no longer interrupts. Both are sent to the feedback list
+  // (/app/list/) with what happened just before, so the cause can be found.
+  const CRUMBS = [], ERR_SENT = new Set();
+  function crumb(s) { CRUMBS.push(Math.round(performance.now() / 1000) + 's ' + String(s).slice(0, 80)); if (CRUMBS.length > 14) CRUMBS.shift(); }
+  document.addEventListener('pointerdown', e => { try { const t = e.target.closest ? e.target.closest('button, label, input, summary, .litem, .ohead, #stage') : null; if (t) crumb('tap ' + (t.id || t.getAttribute('aria-label') || t.textContent || t.className || t.tagName).trim().slice(0, 40)); } catch {} }, true);
+  document.addEventListener('visibilitychange', () => crumb('page ' + document.visibilityState));
+  function reportError(kind, err, where) {
+    try {
+      const name = (err && err.name) || '', msg = (err && err.message) || (typeof err === 'string' ? err : ''), stack = String((err && err.stack) || '').split('\n').slice(0, 8).join('\n');
+      const key = kind + '|' + name + '|' + msg + '|' + (where || '');
+      if (ERR_SENT.has(key) || ERR_SENT.size >= 6) return; ERR_SENT.add(key);
+      const text = '[automatic error report] ' + kind + ': ' + ([name, msg].filter(Boolean).join(' · ') || String(err)) + (where ? ' at ' + where : '') +
+        (stack ? '\n' + stack : '') + '\nstep ' + S.step + ' · tab ' + S.tab + ' · page ' + document.visibilityState + ' · open ' + Math.round(performance.now() / 1000) + ' s · pieces ' + S.pieces.length + ' · objects ' + S.lines.length +
+        '\nbefore it: ' + CRUMBS.join(' | ');
+      fetch('/app/api/feedback', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ text: text.slice(0, 3900), file: S.fileName || '', screen: innerWidth + '×' + innerHeight, phone: PHONE, ua: navigator.userAgent.slice(0, 200) }) }).catch(() => {});
+    } catch {}
+  }
+  window.addEventListener('error', e => { try { toast('Error: ' + e.message + (e.lineno ? ' (line ' + e.lineno + ')' : '')); reportError('Script error', e.error || e.message, e.lineno ? 'line ' + e.lineno + ':' + e.colno : ''); } catch {} });
+  window.addEventListener('unhandledrejection', e => { try { console.warn('Background error', e.reason); reportError('Background error', e.reason); } catch {} });
   function toast(msg) {
+    try { crumb('note: ' + msg); } catch {}
     const t = $('#toast'); t.textContent = msg; t.hidden = false;
     clearTimeout(toastTimer); toastTimer = setTimeout(() => t.hidden = true, /^Error/.test(msg) ? 10000 : 3600);
   }
