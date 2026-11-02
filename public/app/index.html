@@ -868,6 +868,7 @@ body.phone #pbSheet:not([hidden]) { display: flex; position: fixed; inset: 0; z-
         </div>
         <div class="group" id="pieceManual">
           <button class="btn" id="editPiecesBtn" title="Mark each pattern piece once, on the whole sheet">Mark pieces</button>
+          <button class="btn danger slim" id="resetLayoutBtn" title="Puts every piece of this pattern back where it is on the PDF (two taps)">↺ Reset configuration</button>
           <button class="btn slim" id="asmOpen2" hidden title="Back to putting the pages together, just as you left it">Edit page layout</button>
           <button class="btn slim" id="addPieceBtn" hidden></button><button class="btn slim" id="findPieces" hidden></button>
           <button class="btn slim" id="importPieces" hidden title="Open a pattern PDF, tap the pieces you want and bring them in">Import pieces from a PDF…</button>
@@ -6642,6 +6643,29 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
     const now = pcMid(l), home = l.pinned && S.base ? toWorld(t.home) : t.home, dx = home[0] - now[0], dy = home[1] - now[1];
     if (Math.hypot(dx, dy) > 0.1) applyObjs(snapObjs(xfGroup(l)), q => [q[0] + dx, q[1] + dy]);
   }
+  // Reset configuration: every piece of the open pattern (with its drawings) back where it is on the PDF
+  function resetLayout() {
+    if (S.locked && lockedSay()) return;
+    const own = S.lines.filter(l => ownPc(l) && l.pc.pts0 && l.pts && l.pts.length > 2);
+    if (!own.length) return;
+    const home = q => toWorld(canvasToLocal(q));
+    own.forEach(l => {
+      try {
+        const M = pcFit(l), Minv = M && NotchVec.invert(M);
+        if (Minv) {
+          const draw = [];
+          S.lines.forEach(d => { if (d.owner === l.id && !d.pc) grpOf(d).forEach(z => { if (!z.pc && !draw.includes(z)) draw.push(z); }); });
+          if (draw.length) applyObjs(snapObjs(draw), w => { const q = NotchVec.apply(Minv, w[0], w[1]); return home(q); }, norm180(S.rot - (l.rot || 0)));
+        }
+        l.pts = l.pc.pts0.map(home); l.rot = S.rot; l._fit = null; delete l.tmp; delete l.hidden;
+        if (l.pinned || S.base) pin(l, true);
+      } catch (err) { console.error(err); }
+    });
+    S.mainHidden = false;
+    if (S.wholePdf) { S.wholePdf = false; S.sheetOff = S.pieces.length > 0 && S.pieces.every(p => sepOf(p)); }
+    drawPieces(); drawLines(); renderLineList(); updateMirror(); record();
+    toast('All pieces back where they are on the PDF · Undo brings your layout back');
+  }
   // Show all / Hide all under one heading
   function setAllPcs(list, on, key, rec) {
     list.forEach(x => { if (on) delete x.hidden; else x.hidden = true; });
@@ -6674,7 +6698,7 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
   // buttons that live in Objects' sections (moved there each time the list is drawn)
   function keptEl(id) { const k = S._kept || (S._kept = {}); if (!k[id]) k[id] = document.getElementById(id); return k[id]; }
   function buildObjectSections(box, mkItem) {
-    { const home = keptEl('pieceManual'); ['editPiecesBtn', 'asmOpen2'].forEach(id => { const b = keptEl(id); if (home && b) home.append(b); }); }
+    { const home = keptEl('pieceManual'); ['editPiecesBtn', 'resetLayoutBtn', 'asmOpen2'].forEach(id => { const b = keptEl(id); if (home && b) home.append(b); }); }
     const open = S.secOpen || (S.secOpen = { own: true, other: true, misc: true, lines: true });
     const otherRec = [PROJ.main, PROJ.lining].find(r => r && r.id && r.id !== SAVE.id) || null;
     const L = S.lines, top = l => !(isMarkStroke(l) && firstOfGroup(l) !== l);
@@ -6728,7 +6752,8 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
       if (left && !S.wholePdf) { const n = document.createElement('p'); n.className = 'note'; n.textContent = left + (left > 1 ? ' pieces have' : ' piece has') + ' no outline to follow, so ' + (left > 1 ? 'they show' : 'it shows') + ' on the sheet.'; body.append(n); }
       if (!S.pieces.length) { const n = document.createElement('p'); n.className = 'note'; n.textContent = 'No pieces marked yet. The whole PDF shows on the mat; mark the pieces once and each becomes its own object here.'; body.append(n); }
       const bt = document.createElement('div'); bt.className = 'row2 obtns';
-      ['editPiecesBtn', 'asmOpen2'].forEach(q => { const b = keptEl(q); if (b) bt.append(b); });
+      ['editPiecesBtn', 'resetLayoutBtn', 'asmOpen2'].forEach(q => { const b = keptEl(q); if (b) bt.append(b); });
+      { const rb = keptEl('resetLayoutBtn'); if (rb) rb.hidden = !ownLines.length; }
       body.append(bt);
       if (S.pieces.length) check(body, 'Show original PDF', S.wholePdf, 'Show the PDF sheet just as it is, with its notes and size table · the pieces hide meanwhile', v => setWholePdf(v));
     }
@@ -8871,6 +8896,7 @@ Reply with only JSON: {"pieces":[{"name":"...","cut":"...","outline":[[x,y],...]
     toast('Project cleared');
   }
   twoTap($('#clearPatterns'), 'Clear project', clearProject, '✕', () => 'Tap again · clear this project');
+  twoTap($('#resetLayoutBtn'), 'Reset configuration', resetLayout, '↺', () => 'Are you sure? Tap again');
   twoTap($('#resetPattern'), 'Reset pattern', () => {
     S.rot = 0; S.flip = false; S.pivotWhole = null; S.flipWhole = null; S.matSel = null;
     S.lines = []; S.selId = null; S.foldId = null; updateMirror();
